@@ -1,7 +1,6 @@
 """Hour 1 checks: the seed data tells the stories it claims, and the mock APIs behave."""
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi.testclient import TestClient
@@ -11,10 +10,7 @@ from app.main import app
 
 
 @pytest.fixture
-def client(tmp_path, monkeypatch):
-    """Every test gets its own freshly seeded database, so tests cannot affect each other."""
-    monkeypatch.setattr(db, "DB_PATH", tmp_path / "test.db")
-    seed.seed_db()
+def client(fresh_db):
     with TestClient(app) as test_client:
         yield test_client
 
@@ -30,18 +26,6 @@ def test_seed_has_every_kind_of_transaction(client):
     statuses = Counter(row["status"] for row in rows("SELECT status FROM transactions"))
     assert statuses == {"failed_debited": 20, "success": 6, "pending": 2, "failed_no_debit": 2}
     assert len(rows("SELECT 1 FROM customers")) == 10
-
-
-@pytest.mark.parametrize("txn", seed.TRANSACTIONS, ids=lambda t: t.txn_id)
-def test_scenario_label_matches_the_refund_rules(client, txn):
-    """Applies the four policy rules directly. Hour 2 replaces this with the real policy engine."""
-    week_ago = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat(timespec="seconds")
-    row = rows("SELECT status, amount_paise FROM transactions WHERE txn_id = ?", txn.txn_id)[0]
-    refunded = rows("SELECT 1 FROM refunds WHERE txn_id = ?", txn.txn_id)
-    claims = rows("SELECT 1 FROM claims WHERE customer_id = ? AND created_at >= ?", txn.customer_id, week_ago)
-
-    eligible = row["status"] == "failed_debited" and row["amount_paise"] <= 200_000 and not refunded and len(claims) < 3
-    assert eligible == txn.scenario.startswith("AUTO")
 
 
 def test_seed_timeline_makes_sense(client):

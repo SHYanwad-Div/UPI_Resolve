@@ -53,15 +53,49 @@ CREATE TABLE IF NOT EXISTS tickets (
     status      TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'approved', 'rejected')),
     created_at  TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS cases (
+    case_id     TEXT PRIMARY KEY,
+    customer_id TEXT NOT NULL REFERENCES customers (customer_id),
+    txn_id      TEXT REFERENCES transactions (txn_id),
+    status      TEXT NOT NULL CHECK (status IN ('awaiting_customer', 'auto_resolved', 'escalated')),
+    messages    TEXT NOT NULL,
+    reply       TEXT,
+    refund_id   TEXT REFERENCES refunds (refund_id),
+    ticket_id   TEXT REFERENCES tickets (ticket_id),
+    created_at  TEXT NOT NULL,
+    resolved_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS audit_log (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    case_id    TEXT NOT NULL REFERENCES cases (case_id),
+    stage      TEXT NOT NULL CHECK (stage IN ('SENSE', 'AI', 'SAFETY', 'ACT')),
+    event      TEXT NOT NULL,
+    detail     TEXT,
+    created_at TEXT NOT NULL
+);
+
+-- An audit log anyone can quietly edit proves nothing, so the database refuses changes.
+CREATE TRIGGER IF NOT EXISTS audit_log_no_update BEFORE UPDATE ON audit_log
+BEGIN SELECT RAISE(ABORT, 'audit_log is append-only'); END;
+
+CREATE TRIGGER IF NOT EXISTS audit_log_no_delete BEFORE DELETE ON audit_log
+BEGIN SELECT RAISE(ABORT, 'audit_log is append-only'); END;
 """
 
 # Children before parents, so foreign keys stay valid while dropping.
-TABLES = ("tickets", "claims", "refunds", "transactions", "customers")
+TABLES = ("audit_log", "cases", "tickets", "claims", "refunds", "transactions", "customers")
+
+
+def to_iso(moment: datetime) -> str:
+    """One fixed format, so timestamps can be compared as plain strings in SQL."""
+    return moment.astimezone(timezone.utc).isoformat(timespec="milliseconds")
 
 
 def utc_now() -> str:
     """Timestamps are stored in UTC; the UI converts to IST for display."""
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return to_iso(datetime.now(timezone.utc))
 
 
 @contextmanager

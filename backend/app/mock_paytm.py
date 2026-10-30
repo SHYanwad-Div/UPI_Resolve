@@ -25,7 +25,7 @@ def _txn_not_found(txn_id: str) -> PaytmError:
     return PaytmError("txn_not_found", f"No transaction with id {txn_id}", 404)
 
 
-def _format_inr(paise: int) -> str:
+def format_inr(paise: int) -> str:
     return f"₹{paise // 100:,}.{paise % 100:02d}"
 
 
@@ -47,7 +47,7 @@ def get_transaction(txn_id: str) -> dict:
 
     txn = dict(row)
     refund_id, refunded_at = txn.pop("refund_id"), txn.pop("refunded_at")
-    txn["amount_inr"] = _format_inr(txn["amount_paise"])
+    txn["amount_inr"] = format_inr(txn["amount_paise"])
     txn["refund"] = {"refund_id": refund_id, "refunded_at": refunded_at} if refund_id else None
     return txn
 
@@ -62,7 +62,7 @@ def initiate_refund(txn_id: str) -> dict:
             raise PaytmError("not_refundable", f"{txn_id} has status {txn['status']}; only failed_debited can be refunded", 422)
 
         refund["amount_paise"] = txn["amount_paise"]
-        refund["amount_inr"] = _format_inr(txn["amount_paise"])
+        refund["amount_inr"] = format_inr(txn["amount_paise"])
         # Insert and catch the UNIQUE error instead of checking first: with a check,
         # two simultaneous requests could both see "no refund yet" and both pay out.
         try:

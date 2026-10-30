@@ -126,7 +126,7 @@ def seed_db() -> None:
     now = datetime.now(timezone.utc)
 
     def stamp(age: timedelta) -> str:
-        return (now - age).isoformat(timespec="seconds")
+        return db.to_iso(now - age)
 
     paise_by_txn = {t.txn_id: to_paise(t.rupees) for t in TRANSACTIONS}
 
