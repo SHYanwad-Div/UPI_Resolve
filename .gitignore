@@ -1,0 +1,21 @@
+# Secrets: API keys live in .env and must never reach git
+.env
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Local database (rebuilt any time with: python -m app.seed)
+*.db
+*.db-wal
+*.db-shm
+
+# Frontend
+node_modules/
+dist/
+
+# Local editor and tool settings
+.claude/
+.vscode/
