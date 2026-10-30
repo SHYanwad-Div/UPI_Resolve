@@ -55,10 +55,17 @@ def evaluate_refund(txn_id: str, customer_id: str, customer_text: str = "") -> D
             Check("failed_with_debit", txn["status"] == "failed_debited", f"Status is {txn['status']}"),
             Check("within_limit", amount <= AUTO_REFUND_LIMIT_PAISE, f"Amount {txn['amount_inr']} is {'within' if amount <= AUTO_REFUND_LIMIT_PAISE else 'over'} the {limit} auto-refund limit"),
             Check("no_earlier_refund", txn["refund"] is None, "No earlier refund" if txn["refund"] is None else f"Already refunded as {txn['refund']['refund_id']}"),
-            Check("under_claim_limit", claims < CLAIM_LIMIT_PER_WEEK, f"{claims} earlier claims this week (limit: fewer than {CLAIM_LIMIT_PER_WEEK})"),
-            Check("amount_matches_complaint", _amount_matches(customer_text, amount), f"Customer's stated amount {'matches' if _amount_matches(customer_text, amount) else 'does not match'} the recorded {txn['amount_inr']}"),
+            Check("under_claim_limit", claims < CLAIM_LIMIT_PER_WEEK, f"{claims} earlier claim{'' if claims == 1 else 's'} this week (limit: fewer than {CLAIM_LIMIT_PER_WEEK})"),
+            Check("amount_matches_complaint", _amount_matches(customer_text, amount), _amount_detail(customer_text, txn)),
         )
     )
+
+
+def _amount_detail(customer_text: str, txn: dict) -> str:
+    if not _mentioned_amounts(_normalise(customer_text)):
+        return "Customer did not state an amount"
+    matches = _amount_matches(customer_text, txn["amount_paise"])
+    return f"Customer's stated amount {'matches' if matches else 'does not match'} the recorded {txn['amount_inr']}"
 
 
 def claims_this_week(customer_id: str) -> int:

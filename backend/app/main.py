@@ -3,9 +3,9 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-from app import mock_paytm
+from app import agent, audit, console, mock_paytm, views
 from app.mock_paytm import PaytmError
 from app.seed import ensure_seeded
 
@@ -30,10 +30,18 @@ class TicketRequest(BaseModel):
     customer_id: str | None = None
 
 
+class ChatRequest(BaseModel):
+    customer_id: str
+    message: str = Field(max_length=2000)  # Keeps one message from running up the model bill.
+    case_id: str | None = None
+
+
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok"}
 
+
+# --- Mock Paytm APIs ---
 
 @app.get("/mock-paytm/transactions/{txn_id}")
 def get_transaction(txn_id: str) -> dict:
@@ -48,3 +56,40 @@ def initiate_refund(txn_id: str) -> dict:
 @app.post("/mock-paytm/tickets", status_code=201)
 def create_ticket(body: TicketRequest) -> dict:
     return mock_paytm.create_ticket(body.summary, body.txn_id, body.customer_id)
+
+
+# --- What the React UI calls ---
+
+@app.get("/api/customers")
+def list_customers() -> list[dict]:
+    return views.customers_with_payments()
+
+
+@app.post("/api/chat")
+def chat(body: ChatRequest) -> dict:
+    return agent.handle_message(body.customer_id, body.message, body.case_id)
+
+
+@app.get("/api/cases/{case_id}")
+def get_case(case_id: str) -> dict:
+    return views.case_status(case_id)
+
+
+@app.get("/api/audit")
+def get_audit(after: int = 0) -> dict:
+    return audit.since(after)
+
+
+@app.get("/api/tickets")
+def list_tickets() -> list[dict]:
+    return console.list_tickets()
+
+
+@app.post("/api/tickets/{ticket_id}/approve")
+def approve_ticket(ticket_id: str) -> dict:
+    return console.approve(ticket_id)
+
+
+@app.post("/api/tickets/{ticket_id}/reject")
+def reject_ticket(ticket_id: str) -> dict:
+    return console.reject(ticket_id)

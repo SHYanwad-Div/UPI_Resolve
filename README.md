@@ -7,14 +7,29 @@ The AI proposes, a plain Python rules engine approves, and every action is logge
 
 ## Setup
 
-Requires Python 3.13. Run from the project root:
+Requires Python 3.13 and Node 24. Run from the project root:
 
 ```bash
 python -m venv backend/.venv
 backend/.venv/Scripts/python -m pip install -r backend/requirements.txt
+npm --prefix frontend install
 ```
 
 Copy `.env.example` to `backend/.env` and add your Sarvam API key. Git ignores that file.
+
+## Run the app
+
+Start these in two separate terminals, then open http://127.0.0.1:5173
+
+```bash
+backend/.venv/Scripts/python -m uvicorn app.main:app --app-dir backend --port 8000
+```
+
+```bash
+npm --prefix frontend run dev
+```
+
+Keep the page's tab in front while presenting: browsers slow down background tabs, so the live log can lag behind.
 
 ## Try the agent
 
@@ -26,13 +41,9 @@ Sends one complaint through the real model and prints every SENSE, AI, SAFETY an
 
 The first argument is the customer. Reset the demo (below) to see the cheat sheet of who owns which transaction.
 
-## Run the backend
+## Try the APIs directly
 
-```bash
-backend/.venv/Scripts/python -m uvicorn app.main:app --app-dir backend --port 8000
-```
-
-Open http://127.0.0.1:8000/docs to try the APIs. The database seeds itself on first run.
+With the backend running, open http://127.0.0.1:8000/docs. The database seeds itself on first run.
 
 Use `127.0.0.1`, not `localhost`. On Windows, `localhost` can add about 2 seconds to every call.
 
@@ -44,7 +55,7 @@ Reloads the 30 transactions and prints a cheat sheet of what each one should do.
 cd backend && .venv/Scripts/python -m app.seed
 ```
 
-Run this just before a demo: seeded dates are relative to the moment of seeding.
+Run this just before a demo, because seeded dates are relative to the moment of seeding. Then reload the page to clear the chat.
 
 ## Run the tests
 
@@ -60,6 +71,14 @@ backend/.venv/Scripts/python -m pytest backend -q
 4. **ACT:** the refund or ticket is created and the customer gets a reply from fixed, reviewed text.
 
 Every step is written to an append-only audit log.
+
+Anything the policy engine does not approve goes to the human console. A human may approve a refund the rules would not, such as ₹15,000, but cannot refund a payment that never debited the customer or was already refunded.
+
+## RBI deadline clock
+
+The console puts the most urgent case first, using RBI's rules for a UPI payment that debited the customer but did not complete (circular RBI/2019-20/67, annex row 4): a transfer must be reversed by T+1 and a merchant payment by T+5, where T is the calendar date of the transaction. After that the customer is owed ₹100 per day. The clock only runs while the customer's money is actually stuck.
+
+The console has no login, because this is a demo.
 
 ## Mock Paytm APIs
 

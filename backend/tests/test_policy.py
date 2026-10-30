@@ -69,6 +69,24 @@ def test_stated_amount_must_match_the_record(fresh_db, text, approved):
 @pytest.mark.parametrize(
     "text, expected",
     [
+        ("My payment failed", "Customer did not state an amount"),
+        ("I paid ₹349", "Customer's stated amount matches the recorded ₹349.00"),
+        ("I paid ₹900", "Customer's stated amount does not match the recorded ₹349.00"),
+    ],
+)
+def test_amount_check_describes_what_actually_happened(fresh_db, text, expected):
+    checks = policy.evaluate_refund("TXN1001", "C01", text).checks
+    assert next(check for check in checks if check.rule == "amount_matches_complaint").detail == expected
+
+
+def test_claim_count_reads_correctly(fresh_db):
+    details = {check.rule: check.detail for check in policy.evaluate_refund("TXN1003", "C04").checks}
+    assert details["under_claim_limit"].startswith("1 earlier claim this week")
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
         ("₹1,250", [125_000]),
         ("Rs. 349", [34_900]),
         ("349 rupees", [34_900]),

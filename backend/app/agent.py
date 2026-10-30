@@ -73,18 +73,24 @@ REPLIES = {
         "txn_not_found": "I couldn't find a transaction with that ID on your account. Please check it and send it again.",
         "refund_started": "Your refund of {amount_inr} for {txn_id} has been started. Your refund reference is {refund_id}.",
         "sent_to_human": "A support specialist is now looking at your case, and you won't need to repeat anything. Your ticket number is {ticket_id}.",
+        "refund_approved": "Good news: a specialist has approved your refund of {amount_inr} for {txn_id}. Your refund reference is {refund_id}.",
+        "refund_rejected": "A specialist has reviewed ticket {ticket_id} and could not approve a refund for this request.",
     },
     "hi": {
         "ask_txn_id": "आपके भुगतान में हुई परेशानी के लिए खेद है। कृपया अपना ट्रांज़ैक्शन आईडी बताएं, जैसे TXN1001, ताकि मैं इसकी जांच कर सकूं।",
         "txn_not_found": "आपके खाते में इस आईडी का कोई ट्रांज़ैक्शन नहीं मिला। कृपया आईडी जांचकर दोबारा भेजें।",
         "refund_started": "{txn_id} के लिए आपका {amount_inr} का रिफंड शुरू कर दिया गया है। आपका रिफंड संदर्भ नंबर {refund_id} है।",
         "sent_to_human": "हमारे सहायता विशेषज्ञ अब आपका मामला देख रहे हैं, आपको कुछ भी दोहराना नहीं पड़ेगा। आपका टिकट नंबर {ticket_id} है।",
+        "refund_approved": "अच्छी खबर: हमारे विशेषज्ञ ने {txn_id} के लिए आपका {amount_inr} का रिफंड मंज़ूर कर दिया है। आपका रिफंड संदर्भ नंबर {refund_id} है।",
+        "refund_rejected": "हमारे विशेषज्ञ ने टिकट {ticket_id} की समीक्षा की और इस अनुरोध के लिए रिफंड मंज़ूर नहीं कर सके।",
     },
     "kn": {
         "ask_txn_id": "ನಿಮ್ಮ ಪಾವತಿಯಲ್ಲಿನ ತೊಂದರೆಗಾಗಿ ವಿಷಾದಿಸುತ್ತೇವೆ. ದಯವಿಟ್ಟು ನಿಮ್ಮ ವಹಿವಾಟು ಐಡಿಯನ್ನು ತಿಳಿಸಿ, ಉದಾಹರಣೆಗೆ TXN1001, ಇದರಿಂದ ನಾನು ಪರಿಶೀಲಿಸಬಹುದು.",
         "txn_not_found": "ನಿಮ್ಮ ಖಾತೆಯಲ್ಲಿ ಈ ಐಡಿಯ ವಹಿವಾಟು ಕಂಡುಬಂದಿಲ್ಲ. ದಯವಿಟ್ಟು ಐಡಿಯನ್ನು ಪರಿಶೀಲಿಸಿ ಮತ್ತೆ ಕಳುಹಿಸಿ.",
         "refund_started": "{txn_id} ಗಾಗಿ ನಿಮ್ಮ {amount_inr} ಮರುಪಾವತಿಯನ್ನು ಪ್ರಾರಂಭಿಸಲಾಗಿದೆ. ನಿಮ್ಮ ಮರುಪಾವತಿ ಉಲ್ಲೇಖ ಸಂಖ್ಯೆ {refund_id}.",
         "sent_to_human": "ನಮ್ಮ ಸಹಾಯ ತಜ್ಞರು ಈಗ ನಿಮ್ಮ ಪ್ರಕರಣವನ್ನು ನೋಡುತ್ತಿದ್ದಾರೆ, ನೀವು ಏನನ್ನೂ ಪುನರಾವರ್ತಿಸಬೇಕಾಗಿಲ್ಲ. ನಿಮ್ಮ ಟಿಕೆಟ್ ಸಂಖ್ಯೆ {ticket_id}.",
+        "refund_approved": "ಒಳ್ಳೆಯ ಸುದ್ದಿ: ನಮ್ಮ ತಜ್ಞರು {txn_id} ಗಾಗಿ ನಿಮ್ಮ {amount_inr} ಮರುಪಾವತಿಯನ್ನು ಅನುಮೋದಿಸಿದ್ದಾರೆ. ನಿಮ್ಮ ಮರುಪಾವತಿ ಉಲ್ಲೇಖ ಸಂಖ್ಯೆ {refund_id}.",
+        "refund_rejected": "ನಮ್ಮ ತಜ್ಞರು ಟಿಕೆಟ್ {ticket_id} ಅನ್ನು ಪರಿಶೀಲಿಸಿದ್ದಾರೆ ಮತ್ತು ಈ ವಿನಂತಿಗೆ ಮರುಪಾವತಿಯನ್ನು ಅನುಮೋದಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ.",
     },
 }
 
@@ -121,7 +127,7 @@ def handle_message(customer_id: str, text: str, case_id: str | None = None) -> d
         return _escalate(case_id, customer_id, messages, policy.first_txn_id(text), ["The AI was unavailable"], assessment=None)
 
     if isinstance(outcome, NeedsCustomer):
-        reply = _reply(outcome.reply_key, messages)
+        reply = reply_text(outcome.reply_key, messages)
         messages.append({"role": "assistant", "content": reply})  # Remember what the customer actually saw.
         return _finish(case_id, "awaiting_customer", messages, reply)
     if outcome.action == "refund":
@@ -218,7 +224,7 @@ def _decide_refund(case_id: str, customer_id: str, messages: list[dict], proposa
 
     audit.log(case_id, "ACT", f"Refund {refund['refund_id']} started for {refund['amount_inr']}", refund)
     _record_claim(customer_id, proposal.txn_id)
-    reply = _reply("refund_started", messages, amount_inr=refund["amount_inr"], txn_id=proposal.txn_id, refund_id=refund["refund_id"])
+    reply = reply_text("refund_started", messages, amount_inr=refund["amount_inr"], txn_id=proposal.txn_id, refund_id=refund["refund_id"])
     return _finish(case_id, "auto_resolved", messages, reply, txn_id=proposal.txn_id, refund_id=refund["refund_id"])
 
 
@@ -229,7 +235,7 @@ def _escalate(case_id: str, customer_id: str, messages: list[dict], txn_id: str 
     audit.log(case_id, "ACT", f"Ticket {ticket['ticket_id']} created for a human agent", {"summary": summary, "reasons": reasons})
     if txn:
         _record_claim(customer_id, txn["txn_id"])
-    reply = _reply("sent_to_human", messages, ticket_id=ticket["ticket_id"])
+    reply = reply_text("sent_to_human", messages, ticket_id=ticket["ticket_id"])
     return _finish(case_id, "escalated", messages, reply, txn_id=txn["txn_id"] if txn else None, ticket_id=ticket["ticket_id"])
 
 
@@ -265,7 +271,7 @@ def _build_summary(customer_id: str, txn: dict | None, txn_id: str | None, reaso
     return " ".join(parts)
 
 
-def _reply(key: str, messages: list[dict], **facts) -> str:
+def reply_text(key: str, messages: list[dict], **facts) -> str:
     return REPLIES[_language_of(_customer_text(messages))][key].format(**facts)
 
 

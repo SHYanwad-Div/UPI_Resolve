@@ -64,14 +64,14 @@ TRANSACTIONS = [
     Txn("TXN1003", "C04", "Sri Lakshmi Medicals", "srilakshmi.med@oksbi", "799.00", "failed_debited", CREDIT_TIMEOUT, hours(20), "AUTO: one earlier claim this week"),
     Txn("TXN1004", "C05", "Metro Card Recharge", "metro.recharge@ybl", "180.50", "failed_debited", BANK_DOWN, hours(3), "AUTO: amount with paise"),
     Txn("TXN1005", "C07", "Urban Kirana Store", "urbankirana@okaxis", "2000.00", "failed_debited", CREDIT_TIMEOUT, hours(6), "AUTO: exactly at the Rs 2,000 limit"),
-    Txn("TXN1006", "C03", "Raju Tea Stall", "rajutea@ybl", "45.00", "failed_debited", BANK_DOWN, hours(0.5), "AUTO: tiny amount"),
+    Txn("TXN1006", "C03", "Rohan Mehta", "rohan.mehta@ybl", "45.00", "failed_debited", BANK_DOWN, hours(0.5), "AUTO: tiny transfer to a friend"),
     Txn("TXN1007", "C06", "Green Leaf Cafe", "greenleaf@okicici", "350.00", "failed_debited", CREDIT_TIMEOUT, hours(26), "AUTO: 'I paid twice', this attempt failed after debit"),
     Txn("TXN1008", "C06", "Green Leaf Cafe", "greenleaf@okicici", "350.00", "success", None, hours(25.9), "HUMAN: 'I paid twice', the retry that succeeded"),
     Txn("TXN1009", "C09", "Swift Cabs", "swiftcabs@ibl", "620.00", "failed_debited", CREDIT_TIMEOUT, hours(4), "AUTO: two earlier claims this week, still under 3"),
     Txn("TXN1010", "C10", "City Diagnostics", "citydiag@okhdfcbank", "1100.00", "failed_debited", BANK_DOWN, hours(8), "AUTO: three claims in total, but one is older than a week"),
     # High value: a genuine failure, but over the limit.
     Txn("TXN1011", "C02", "Reliable Electronics", "reliable.elec@axl", "2000.01", "failed_debited", CREDIT_TIMEOUT, hours(7), "HUMAN: one paisa over the limit"),
-    Txn("TXN1012", "C01", "Sunrise PG Rent", "sunrisepg@oksbi", "15000.00", "failed_debited", BANK_DOWN, days(1), "HUMAN: high-value rent payment"),
+    Txn("TXN1012", "C01", "Sunrise PG Rent", "sunrisepg@oksbi", "15000.00", "failed_debited", BANK_DOWN, days(3), "HUMAN: high-value rent, past RBI's T+1 deadline"),
     Txn("TXN1013", "C07", "Vidya College Fees", "vidya.fees@okaxis", "50000.00", "failed_debited", CREDIT_TIMEOUT, days(2), "HUMAN: high-value college fees"),
     Txn("TXN1014", "C03", "Care Hospital", "carehospital@ybl", "8500.00", "failed_debited", BANK_DOWN, hours(10), "HUMAN: high-value hospital bill"),
     # Duplicate claims: the money has already gone back.
@@ -95,6 +95,9 @@ TRANSACTIONS = [
     Txn("TXN1029", "C06", "SkyJet Airlines", "skyjet@okicici", "3200.00", "pending", None, hours(1), "HUMAN: still pending, over the limit"),
     Txn("TXN1030", "C05", "Online Grocer", "onlinegrocer@ybl", "999.00", "failed_no_debit", NO_FUNDS, days(1), "HUMAN: failed, but no money was debited"),
 ]
+
+# Transfers to a person. Everything else is a merchant payment. RBI gives them different deadlines.
+P2P_TXNS = {"TXN1006", "TXN1012"}
 
 # customer_id, txn_id, age: complaints made before the demo starts.
 PRIOR_CLAIMS = [
@@ -134,9 +137,9 @@ def seed_db() -> None:
     with db.get_conn() as conn:
         conn.executemany("INSERT INTO customers VALUES (?, ?, ?, ?)", CUSTOMERS)
         conn.executemany(
-            "INSERT INTO transactions VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO transactions VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             [
-                (t.txn_id, t.customer_id, t.payee_name, t.payee_vpa, paise_by_txn[t.txn_id], t.status, t.failure_reason, stamp(t.age))
+                (t.txn_id, t.customer_id, t.payee_name, t.payee_vpa, "p2p" if t.txn_id in P2P_TXNS else "p2m", paise_by_txn[t.txn_id], t.status, t.failure_reason, stamp(t.age))
                 for t in TRANSACTIONS
             ],
         )
