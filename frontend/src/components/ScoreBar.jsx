@@ -6,14 +6,20 @@ export default function ScoreBar({ staff, onSimulateAttacks }) {
   const [score, setScore] = useState(null)
   const [busy, setBusy] = useState(null)
   const [error, setError] = useState(null)
+  const [notice, setNotice] = useState(null)
 
   usePolling(async () => setScore(await api.scoreboard()), 1500)
 
   async function run(action, call) {
     setBusy(action)
     setError(null)
+    setNotice(null)
     try {
-      await call()
+      const result = await call()
+      if (action === 'scan') {
+        const found = result.incidents.reduce((total, incident) => total + incident.total, 0)
+        setNotice(found > 0 ? `Found ${found} stuck payments. See the card on the right.` : 'Nothing stuck right now.')
+      }
     } catch (failure) {
       setError(failure.message)
     } finally {
@@ -44,6 +50,11 @@ export default function ScoreBar({ staff, onSimulateAttacks }) {
         {error && (
           <span className="scorebar-error" role="alert">
             {error}
+          </span>
+        )}
+        {notice && (
+          <span className="scorebar-notice" role="status">
+            {notice}
           </span>
         )}
         <button type="button" className="button button-outage" disabled={Boolean(busy) || !staff} title={staff ? undefined : 'Sign in as staff first'} onClick={() => run('outage', api.simulateOutage)}>

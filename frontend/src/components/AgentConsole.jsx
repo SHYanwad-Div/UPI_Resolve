@@ -133,10 +133,9 @@ function IncidentCard({ incident, now, staff, onDecide }) {
       )}
       <dl className="incident-facts">
         <div>
-          <dt>AI's view</dt>
-          <dd>
-            {incident.cause_label}. Suggests: {incident.action_label.toLowerCase()}.
-          </dd>
+          {/* A scan finds unrelated payments, so the AI is not asked about a shared cause. */}
+          <dt>{incident.kind === 'outage' ? "AI's view" : 'Plan'}</dt>
+          <dd>{incident.kind === 'outage' ? `${incident.cause_label}. Suggests: ${incident.action_label.toLowerCase()}.` : 'No single cause, and the AI was not asked. Tell customers and refund the routine group.'}</dd>
         </div>
         <div>
           <dt>Rules</dt>
