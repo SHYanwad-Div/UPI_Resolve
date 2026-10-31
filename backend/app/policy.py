@@ -95,18 +95,32 @@ _DEMAND = re.compile(r"\b(refund|return|credit)\b|\b(send|give|pay)\s+me\b|\btra
 
 
 def _pattern(text: str) -> re.Pattern:
-    """Normalised like the input, because Indian scripts can spell one letter in two byte forms."""
-    return re.compile(unicodedata.normalize("NFKC", text), re.IGNORECASE)
+    """Normalised like the input, because Indian scripts can spell one letter in two byte forms.
+
+    DOTALL so a line break cannot hide a phrase from the gaps in these patterns.
+    """
+    return re.compile(unicodedata.normalize("NFKC", text), re.IGNORECASE | re.DOTALL)
 
 
+_RULES = r"\b(rules?|instructions?|polic(y|ies)|limits?|checks?|prompts?|guidelines?)\b"
+_HINDI_RULES = "(नियम|निर्देश|आदेश)"
+_HINDI_IGNORE = "(अनदेखा|भूल|तोड़|छोड़|नज़रअंदाज़|नजरअंदाज)"
+_KANNADA_RULES = "(ನಿಯಮ|ಸೂಚನೆ|ಆದೇಶ)"
+_KANNADA_IGNORE = "(ನಿರ್ಲಕ್ಷಿಸ|ಮರೆತು|ಮರೆಯಿರಿ|ಬಿಟ್ಟು|ಉಲ್ಲಂಘಿಸ)"
+_STAFF = r"\b(compliance|reviewer|risk team|paytm risk|fraud team)\b"
+_CLEARED = r"\b(verified|cleared|confirmed|approved?)\b"
+
+# Both word orders count: Hindi and Kannada put the verb last, and Hinglish follows them.
 _INJECTION_PATTERNS = (
-    ("Asks to ignore rules or instructions", _pattern(r"\b(ignore|disregard|forget|override|bypass|skip|break)\b.{0,40}\b(rules?|instructions?|polic(y|ies)|limits?|checks?|prompts?|guidelines?)\b")),
+    ("Asks to ignore rules or instructions", _pattern(rf"\b(ignore|disregard|forget|override|bypass|skip|break)\b.{{0,40}}{_RULES}|{_RULES}.{{0,40}}\b(ignore|disregard|override|bypass|bhool\w*|bhul\w*)\b")),
     ("Tries to change the AI's role", _pattern(r"\b(you are now|act as (a|an|if|my|the)|pretend (to be|you)|developer mode|jailbreak|new instructions)\b")),
     ("Asks about hidden instructions", _pattern(r"\b(system|hidden) (prompt|message|instructions?)\b")),
     ("Claims special authority", _pattern(r"\b(i am|i'm|this is)\b.{0,25}\b(admin|administrator|developer|your manager|paytm (staff|employee|engineer)|rbi officer)\b")),
     ("Claims prior approval", _pattern(r"\b(pre-?approved|already approved|approved by|auto-?approve)\b")),
-    ("Asks to ignore rules (Hindi)", _pattern(r"(नियम|निर्देश).{0,40}(अनदेखा|भूल|तोड़|छोड़|नज़रअंदाज़|नजरअंदाज)")),
-    ("Asks to ignore rules (Kannada)", _pattern(r"(ನಿಯಮ|ಸೂಚನೆ).{0,40}(ನಿರ್ಲಕ್ಷಿಸ|ಮರೆತು|ಮರೆಯಿರಿ|ಬಿಟ್ಟು|ಉಲ್ಲಂಘಿಸ)")),
+    ("Claims to speak for our staff", _pattern(rf"{_STAFF}.{{0,40}}{_CLEARED}|{_CLEARED}.{{0,25}}{_STAFF}|\bsafe to approve\b")),
+    ("Asks to ignore rules (Hindi)", _pattern(rf"{_HINDI_RULES}.{{0,40}}{_HINDI_IGNORE}|{_HINDI_IGNORE}.{{0,40}}{_HINDI_RULES}")),
+    ("Asks to ignore rules (Kannada)", _pattern(rf"{_KANNADA_RULES}.{{0,40}}{_KANNADA_IGNORE}|{_KANNADA_IGNORE}.{{0,40}}{_KANNADA_RULES}")),
+    ("Uses look-alike letters", _pattern(r"[Ͱ-ϿЀ-ԯ]")),  # Greek and Cyrillic.
 )
 
 
@@ -114,7 +128,22 @@ _INJECTION_PATTERNS = (
 # else is treated as a possible attack. This only decides what a human is warned about: the
 # model never reads these fields, so a phrase that slips past this list still cannot steer it.
 MAX_PAYMENT_TEXT = 40
-_DATA_SUSPICIOUS = _pattern(r"\b(system|assistant|compliance|verified|approve\w*|ignore|instructions?|prompts?|reviewer|tool|propose_\w+|refund\w*)\b|[:{}<>\[\]]|नियम|निर्देश|ನಿಯಮ|ಸೂಚನೆ")
+_DATA_SUSPICIOUS = _pattern(r"\b(system|assistant|compliance|verified|cleared|paytm|approve\w*|ignore|instructions?|prompts?|reviewer|tool|propose_\w+|refund\w*|manzoor|manjoor|turant)\b|[:{}<>\[\]\"“”]|नियम|निर्देश|मंज़ूर|मंजूर|अनुमोद|तुरंत|ನಿಯಮ|ಸೂಚನೆ|ಅನುಮೋದ|ಮಂಜೂರ|ತಕ್ಷಣ")
+
+# A human reads failure text too, and honest ones are longer than MAX_PAYMENT_TEXT, so this list
+# decides what is shown instead. It is not part of untrusted_fields: that would flag every payment.
+KNOWN_FAILURES = frozenset(
+    {
+        "Debited from customer; beneficiary bank timed out before credit",
+        "Debited from customer; beneficiary bank unavailable",
+        "Insufficient funds (Z9); no money debited",
+        "Incorrect UPI PIN (ZM); no money debited",
+    }
+)
+UNKNOWN_FAILURE = "unrecognised failure message hidden"
+
+# The ticket's own labels. A customer has no reason to type these, so a message that does is hidden.
+_TICKET_WORDING = _pattern(r"\bai\W{0,2}s?\s+reason\b|sent to a human|customer said|\bwarning\s*:")
 
 
 def payment_text_is_suspicious(text: str | None) -> bool:
@@ -133,16 +162,38 @@ def safe_payee(payee_name: str) -> str:
     return "[suspicious payee name hidden]" if payment_text_is_suspicious(payee_name) else payee_name
 
 
+def labelled_payee(payee_name: str) -> str:
+    """For staff. Payees pick their own names, so one that passes the screen must still read as theirs."""
+    safe = safe_payee(payee_name)
+    return f'payee "{safe}" (name unverified)' if safe == payee_name else safe
+
+
+def safe_failure_reason(text: str) -> str:
+    return text if text in KNOWN_FAILURES else UNKNOWN_FAILURE
+
+
+def copies_ticket_wording(text: str) -> bool:
+    return bool(_TICKET_WORDING.search(_normalise(text)))
+
+
+def flatten_customer_text(text: str) -> str:
+    """One plain line with no double quotes, so customer words cannot end the quote around them."""
+    return re.sub(r'["“”„‟«»]', "'", " ".join(_normalise(text).split()))
+
+
 def first_txn_id(text: str) -> str | None:
     match = _TXN_ID.search(_normalise(text))
     return f"TXN{match[1]}" if match else None
 
 
-def detect_injection(text: str) -> list[str]:
+def detect_injection(text: str, customer_id: str) -> list[str]:
     """Flags manipulation attempts. This is the first filter, not the safety guarantee.
 
     A clever attack can get past these patterns. It still cannot get money: the refund API
     takes no amount, and evaluate_refund checks the real transaction whatever the model says.
+
+    Only the customer's own payments are compared with what they demand. Anyone else's is treated
+    like an id that does not exist, so a guess cannot reveal another customer's amount.
     """
     normalised = _normalise(text)
     flags = [label for label, pattern in _INJECTION_PATTERNS if pattern.search(normalised)]
@@ -157,14 +208,14 @@ def detect_injection(text: str) -> list[str]:
                 recorded = mock_paytm.get_transaction(txn_id)
             except PaytmError:
                 continue
-            if not _amount_matches(normalised, recorded["amount_paise"]):
+            if recorded["customer_id"] == customer_id and not _amount_matches(normalised, recorded["amount_paise"]):
                 flags.append(f"Demands {format_inr(max(demanded))} but {txn_id} is for {recorded['amount_inr']}")
     return flags
 
 
 def _normalise(text: str) -> str:
     """Stops invisible characters and look-alike letters from hiding a phrase like 'ignore'."""
-    return re.sub(r"[​-‍⁠﻿]", "", unicodedata.normalize("NFKC", text))
+    return "".join(char for char in unicodedata.normalize("NFKC", text) if unicodedata.category(char) != "Cf")
 
 
 def _mentioned_amounts(text: str) -> list[int]:

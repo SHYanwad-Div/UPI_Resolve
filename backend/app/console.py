@@ -56,7 +56,7 @@ def _with_details(ticket: dict) -> dict:
     txn = mock_paytm.get_transaction(ticket["txn_id"]) if ticket["txn_id"] else None
     ticket["rbi"] = rbi.for_transaction(txn) if txn and ticket["status"] == "open" else None
     ticket["refund_blocked_reason"] = _refund_blocked_reason(txn)
-    ticket["txn"] = {"amount_inr": txn["amount_inr"], "status": txn["status"], "payee_name": policy.safe_payee(txn["payee_name"])} if txn else None
+    ticket["txn"] = {"amount_inr": txn["amount_inr"], "status": txn["status"], "payee_name": policy.labelled_payee(txn["payee_name"])} if txn else None
     ticket["untrusted_fields"] = policy.untrusted_fields(txn) if txn else []
     return ticket
 
