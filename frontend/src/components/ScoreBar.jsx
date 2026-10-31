@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { api } from '../api'
 import { usePolling } from '../usePolling'
 
-export default function ScoreBar() {
+export default function ScoreBar({ staff }) {
   const [score, setScore] = useState(null)
   const [busy, setBusy] = useState(null)
   const [error, setError] = useState(null)
@@ -46,10 +46,10 @@ export default function ScoreBar() {
             {error}
           </span>
         )}
-        <button type="button" className="button button-outage" disabled={Boolean(busy)} onClick={() => run('outage', api.simulateOutage)}>
+        <button type="button" className="button button-outage" disabled={Boolean(busy) || !staff} title={staff ? undefined : 'Sign in as staff first'} onClick={() => run('outage', api.simulateOutage)}>
           {busy === 'outage' ? 'Handling outage...' : 'Simulate bank outage'}
         </button>
-        <button type="button" className="button button-secondary" disabled={Boolean(busy)} onClick={() => run('scan', api.scan)}>
+        <button type="button" className="button button-secondary" disabled={Boolean(busy) || !staff} title={staff ? undefined : 'Sign in as staff first'} onClick={() => run('scan', api.scan)}>
           {busy === 'scan' ? 'Scanning...' : 'Scan for stuck payments'}
         </button>
         <span className="scorebar-note">*Assumes ₹100 per human ticket, ₹10 per AI ticket</span>

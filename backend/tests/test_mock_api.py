@@ -3,15 +3,21 @@ from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app import db, mock_paytm, seed
-from app.main import app
+from app.main import paytm_error_handler
+from app.mock_routes import router
 
 
 @pytest.fixture
 def client(fresh_db):
-    with TestClient(app) as test_client:
+    """Only tests get these routes. The running app does not include them."""
+    test_app = FastAPI()
+    test_app.include_router(router)
+    test_app.add_exception_handler(mock_paytm.PaytmError, paytm_error_handler)
+    with TestClient(test_app) as test_client:
         yield test_client
 
 

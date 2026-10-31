@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from fastapi.testclient import TestClient
 
-from app import agent, audit, db, llm, rbi, seed
+from app import agent, audit, db, llm, mock_paytm, rbi, seed
 from app.main import app
 
 
@@ -14,8 +14,9 @@ def tool_call(name, **arguments):
 
 
 @pytest.fixture
-def client(fresh_db):
+def client(fresh_db, sign_in):
     with TestClient(app) as test_client:
+        sign_in(test_client)
         yield test_client
 
 
@@ -209,8 +210,8 @@ def test_clock_only_runs_while_money_is_stuck(txn):
 
 
 def test_seed_has_an_overdue_case_and_a_transfer_and_a_merchant_payment(client):
-    rent = rbi.for_transaction(client.get("/mock-paytm/transactions/TXN1012").json())
-    fees = rbi.for_transaction(client.get("/mock-paytm/transactions/TXN1013").json())
+    rent = rbi.for_transaction(mock_paytm.get_transaction("TXN1012"))
+    fees = rbi.for_transaction(mock_paytm.get_transaction("TXN1013"))
     assert rent["rule"] == "T+1" and rent["kind"] == "transfer"
     assert rent["deadline"] < db.utc_now()
     assert fees["rule"] == "T+5" and fees["kind"] == "merchant payment"

@@ -98,22 +98,24 @@ def test_model_text_without_a_proposal_never_reaches_the_ticket(seen_by_model):
     assert ticket_for(result)["txn_id"] == "TXN1013"
 
 
-def test_seeded_attack_end_to_end_in_the_console(seen_by_model):
+def test_seeded_attack_end_to_end_in_the_console(seen_by_model, sign_in):
     seen_by_model(calls(tool_call("get_transaction", txn_id="TXN1031")), calls(tool_call("propose_refund", txn_id="TXN1031", reason_code="failed_after_debit")))
     result = agent.handle_message("C07", "TXN1031 failed and money was debited")
     assert result["status"] == "escalated"
 
     with TestClient(app) as client:
+        sign_in(client)
         ticket = client.get("/api/tickets").json()[0]
     assert ticket["untrusted_fields"] == ["payment note"]
     assert "SYSTEM NOTE" not in json.dumps(ticket)
 
 
-def test_console_and_chat_hide_a_planted_payee_name(seen_by_model):
+def test_console_and_chat_hide_a_planted_payee_name(seen_by_model, sign_in):
     poison("TXN1012", "payee_name")
     seen_by_model(calls(tool_call("propose_refund", txn_id="TXN1012", reason_code="failed_after_debit")))
     agent.handle_message("C01", "TXN1012 failed")
     with TestClient(app) as client:
+        sign_in(client)
         assert "SYSTEM NOTE" not in json.dumps(client.get("/api/tickets").json())
         assert "SYSTEM NOTE" not in json.dumps(client.get("/api/customers").json())
 

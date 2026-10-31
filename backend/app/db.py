@@ -54,6 +54,8 @@ CREATE TABLE IF NOT EXISTS tickets (
     txn_id      TEXT REFERENCES transactions (txn_id),
     customer_id TEXT REFERENCES customers (customer_id),
     status      TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'approved', 'rejected')),
+    first_approver TEXT,
+    decided_by  TEXT,
     created_at  TEXT NOT NULL
 );
 
@@ -78,6 +80,8 @@ CREATE TABLE IF NOT EXISTS incidents (
     cause         TEXT NOT NULL,
     action        TEXT NOT NULL,
     earliest_deadline TEXT,
+    first_approver TEXT,
+    decided_by    TEXT,
     created_at    TEXT NOT NULL,
     decided_at    TEXT
 );

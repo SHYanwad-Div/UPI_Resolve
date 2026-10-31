@@ -1,9 +1,27 @@
+import { useEffect, useState } from 'react'
+import { setSignedOutHandler, setStaffToken } from './api'
 import AgentConsole from './components/AgentConsole.jsx'
 import ChatPanel from './components/ChatPanel.jsx'
 import DecisionLog from './components/DecisionLog.jsx'
 import ScoreBar from './components/ScoreBar.jsx'
 
 export default function App() {
+  const [staff, setStaff] = useState(null)
+
+  useEffect(() => {
+    setSignedOutHandler(() => setStaff(null))
+  }, [])
+
+  function signIn(session) {
+    setStaffToken(session.token)
+    setStaff(session.name)
+  }
+
+  function signOut() {
+    setStaffToken(null)
+    setStaff(null)
+  }
+
   return (
     <div className="app">
       <header className="topbar">
@@ -16,11 +34,11 @@ export default function App() {
           <span className="mock-note">Demo data. No real money moves.</span>
         </div>
       </header>
-      <ScoreBar />
+      <ScoreBar staff={staff} />
       <main className="panels">
         <ChatPanel />
-        <DecisionLog />
-        <AgentConsole />
+        <DecisionLog staff={staff} />
+        <AgentConsole staff={staff} onSignIn={signIn} onSignOut={signOut} />
       </main>
     </div>
   )

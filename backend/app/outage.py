@@ -104,38 +104,63 @@ def scan(outages_only: bool = False) -> list[dict]:
     return opened
 
 
-def approve(incident_id: str) -> dict:
-    case_status = "human_approved"
-    incident = _claim(incident_id, "approved")
+def approve(incident_id: str, staff: str) -> dict:
+    incident = _open_incident_row(incident_id)
     with get_conn() as conn:
         routine = [row["txn_id"] for row in conn.execute("SELECT txn_id FROM incident_items WHERE incident_id = ? AND route = 'routine'", (incident_id,))]
 
-    # Time has passed since sorting, so the rules run again on fresh data before any money moves.
-    claims = _claims_by_customer()
-    fresh = {p["txn_id"]: p for p in _load_payments(routine)}
-    allowed = [txn_id for txn_id, payment in fresh.items() if policy.decide(payment, payment["customer_id"], claims[payment["customer_id"]]).approved]
-    refunds = mock_paytm.initiate_refunds(allowed)
+    # A big group needs two different people, so one mistake or one bad actor cannot release it.
+    routine_total = sum(payment["amount_paise"] for payment in _load_payments(routine))
+    if routine_total > policy.GROUP_SECOND_APPROVER_ABOVE_PAISE:
+        if incident["first_approver"] is None:
+            with get_conn() as conn:
+                conn.execute("UPDATE incidents SET first_approver = ? WHERE incident_id = ? AND first_approver IS NULL", (staff, incident_id))
+            audit.log(incident_id, "SAFETY", f"FIRST APPROVAL: {staff} approved the group, a different person must also approve")
+            return {"incident_id": incident_id, "status": "needs_second_approver", "first_approver": staff}
+        if incident["first_approver"] == staff:
+            raise PaytmError("same_approver", "A different person must give the second approval", 409)
 
+    # All or nothing, so money never moves without its record.
     with get_conn() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        _claim(conn, incident_id, "approved", staff)
+
+        # Time has passed since sorting, so the rules run again on fresh data, with running totals.
+        claims = _claims_by_customer()
+        spent = _refunded_by_customer()
+        total_spent = policy.refunded_last_day()
+        fresh = {p["txn_id"]: p for p in _load_payments(routine)}
+        allowed = []
+        for txn_id, payment in fresh.items():
+            customer_id = payment["customer_id"]
+            if policy.decide(payment, customer_id, claims[customer_id], "", spent[customer_id], total_spent).approved:
+                allowed.append(txn_id)
+                spent[customer_id] += payment["amount_paise"]
+                total_spent += payment["amount_paise"]
+        refunds = mock_paytm.initiate_refunds(allowed, conn)
+
         conn.executemany("UPDATE incident_items SET refund_id = ? WHERE txn_id = ?", [(refund["refund_id"], txn_id) for txn_id, refund in refunds.items()])
         conn.executemany(
             "INSERT INTO notifications (customer_id, kind, text, created_at) VALUES (?, 'refund_started', ?, ?)",
             [(fresh[txn_id]["customer_id"], agent.REPLIES[fresh[txn_id]["language"]]["refund_started"].format(amount_inr=refund["amount_inr"], txn_id=txn_id, refund_id=refund["refund_id"]), utc_now()) for txn_id, refund in refunds.items()],
         )
-        conn.execute("UPDATE cases SET status = ?, resolved_at = ? WHERE case_id = ?", (case_status, utc_now(), incident_id))
+        conn.execute("UPDATE cases SET status = 'human_approved', resolved_at = ? WHERE case_id = ?", (utc_now(), incident_id))
 
-    total = sum(refund["amount_paise"] for refund in refunds.values())
-    audit.log(incident_id, "SAFETY", f"HUMAN APPROVED: one decision covering {len(refunds)} routine refunds", {"note": f"The rules were checked again first. {len(routine) - len(refunds)} payments no longer qualified and were skipped."})
-    audit.log(incident_id, "ACT", f"Refunds started: {len(refunds)} payments, {format_inr(total)}", {"note": "Each customer was told in their own language."})
-    return {"incident_id": incident_id, "refunded": len(refunds), "skipped": len(routine) - len(refunds), "total_inr": format_inr(total)}
+        total = sum(refund["amount_paise"] for refund in refunds.values())
+        approvers = f"{incident['first_approver']} and {staff}" if incident["first_approver"] else staff
+        audit.log(incident_id, "SAFETY", f"HUMAN APPROVED: {approvers} approved {len(refunds)} routine refunds", {"note": f"The rules were checked again first. {len(routine) - len(refunds)} payments no longer qualified and were skipped."}, conn)
+        audit.log(incident_id, "ACT", f"Refunds started: {len(refunds)} payments, {format_inr(total)}", {"note": "Each customer was told in their own language."}, conn)
+    return {"incident_id": incident_id, "status": "approved", "refunded": len(refunds), "skipped": len(routine) - len(refunds), "total_inr": format_inr(total)}
 
 
-def hold(incident_id: str) -> dict:
-    _claim(incident_id, "held")
+def hold(incident_id: str, staff: str) -> dict:
+    _open_incident_row(incident_id)
     with get_conn() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        _claim(conn, incident_id, "held", staff)
         conn.execute("UPDATE cases SET status = 'human_rejected', resolved_at = ? WHERE case_id = ?", (utc_now(), incident_id))
-    audit.log(incident_id, "SAFETY", "HUMAN REJECTED: group held, no refunds started")
-    return {"incident_id": incident_id, "refunded": 0}
+        audit.log(incident_id, "SAFETY", f"HUMAN REJECTED: {staff} held the group, no refunds started", conn=conn)
+    return {"incident_id": incident_id, "status": "held", "refunded": 0}
 
 
 def list_incidents() -> list[dict]:
@@ -160,6 +185,7 @@ def list_incidents() -> list[dict]:
                 "attacks": sum(1 for item in items if policy.untrusted_fields(dict(item))),
                 "stuck_inr": format_inr(sum(item["amount_paise"] for item in items)),
                 "routine_inr": format_inr(sum(item["amount_paise"] for item in routine)),
+                "needs_second_approver": sum(item["amount_paise"] for item in routine) > policy.GROUP_SECOND_APPROVER_ABOVE_PAISE,
                 "refunded": sum(1 for item in items if item["refund_id"]),
                 "languages": dict(Counter(item["language"] for item in items)),
                 "cause_label": CAUSES[incident["cause"]],
@@ -181,16 +207,23 @@ def _open_incident(kind: str, bank: str, payments: list[dict]) -> dict:
     cause, action = _assess(incident_id, kind, bank, payments)
 
     claims = _claims_by_customer()
-    routes, failures, attacks = {}, Counter(), 0
+    spent = _refunded_by_customer()
+    total_spent = policy.refunded_last_day()
+    routes, decisions, failures, attacks = {}, {}, Counter(), 0
     for payment in payments:
-        decision = policy.decide(payment, payment["customer_id"], claims[payment["customer_id"]])
+        customer_id = payment["customer_id"]
+        decision = policy.decide(payment, customer_id, claims[customer_id], "", spent[customer_id], total_spent)
+        decisions[payment["txn_id"]] = decision
         routes[payment["txn_id"]] = "routine" if decision.approved else "human"
+        if decision.approved:
+            spent[customer_id] += payment["amount_paise"]
+            total_spent += payment["amount_paise"]
         failures.update(check.rule for check in decision.checks if not check.passed)
         attacks += 1 if policy.untrusted_fields(payment) else 0
 
     routine_count = sum(1 for route in routes.values() if route == "routine")
     human_count = len(routes) - routine_count
-    note = f"Over the limit: {failures['within_limit']}. Too many claims: {failures['under_claim_limit']}. Hidden instructions found: {attacks}."
+    note = f"Over the limit: {failures['within_limit']}. Too many claims: {failures['under_claim_limit']}. Over a daily total: {failures['within_customer_daily_limit'] + failures['within_daily_budget']}. Hidden instructions found: {attacks}."
     audit.log(incident_id, "SAFETY", f"Rules sorted the group: {routine_count} routine, {human_count} need a person", {"note": note})
 
     with get_conn() as conn:
@@ -201,7 +234,7 @@ def _open_incident(kind: str, bank: str, payments: list[dict]) -> dict:
     languages = Counter(p["language"] for p in payments)
     audit.log(incident_id, "ACT", f"Told {len(payments)} customers before they complained", {"note": f"English {languages['en']}, Hindi {languages['hi']}, Kannada {languages['kn']}. Includes a warning about fake helplines."})
 
-    tickets = {p["txn_id"]: _ticket_for(p, decision=policy.decide(p, p["customer_id"], claims[p["customer_id"]])) for p in payments if routes[p["txn_id"]] == "human"}
+    tickets = {p["txn_id"]: _ticket_for(p, decisions[p["txn_id"]]) for p in payments if routes[p["txn_id"]] == "human"}
     audit.log(incident_id, "ACT", f"Created {human_count} human tickets and asked for one approval of the routine group")
 
     deadlines = [rbi.reversal_deadline(p["created_at"], p["payment_type"]) for p in payments]
@@ -285,13 +318,25 @@ def _claims_by_customer() -> Counter:
         return Counter({row["customer_id"]: row["total"] for row in conn.execute("SELECT customer_id, COUNT(*) AS total FROM claims WHERE created_at >= ? GROUP BY customer_id", (cutoff,))})
 
 
-def _claim(incident_id: str, new_status: str) -> dict:
-    """Atomic, so a double-click cannot approve a group twice."""
+def _refunded_by_customer() -> Counter:
+    cutoff = to_iso(datetime.now(timezone.utc) - timedelta(days=1))
     with get_conn() as conn:
-        claimed = conn.execute("UPDATE incidents SET status = ?, decided_at = ? WHERE incident_id = ? AND status = 'awaiting_approval'", (new_status, utc_now(), incident_id)).rowcount
+        rows = conn.execute("SELECT t.customer_id, SUM(r.amount_paise) AS total FROM refunds r JOIN transactions t ON t.txn_id = r.txn_id WHERE r.created_at >= ? GROUP BY t.customer_id", (cutoff,))
+        return Counter({row["customer_id"]: row["total"] for row in rows})
+
+
+def _open_incident_row(incident_id: str) -> dict:
+    with get_conn() as conn:
         row = conn.execute("SELECT * FROM incidents WHERE incident_id = ?", (incident_id,)).fetchone()
     if row is None:
         raise PaytmError("incident_not_found", f"No incident with id {incident_id}", 404)
-    if not claimed:
+    if row["status"] != "awaiting_approval":
         raise PaytmError("incident_already_decided", f"{incident_id} has already been decided", 409)
     return dict(row)
+
+
+def _claim(conn, incident_id: str, new_status: str, staff: str) -> None:
+    """Atomic, so a double-click cannot approve a group twice."""
+    claimed = conn.execute("UPDATE incidents SET status = ?, decided_by = ?, decided_at = ? WHERE incident_id = ? AND status = 'awaiting_approval'", (new_status, staff, utc_now(), incident_id)).rowcount
+    if not claimed:
+        raise PaytmError("incident_already_decided", f"{incident_id} has already been decided", 409)

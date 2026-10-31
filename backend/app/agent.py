@@ -90,6 +90,7 @@ REPLIES = {
         "refund_approved": "Good news: a specialist has approved your refund of {amount_inr} for {txn_id}. Your refund reference is {refund_id}.",
         "refund_rejected": "A specialist has reviewed ticket {ticket_id} and could not approve a refund for this request.",
         "outage_alert": "We noticed your {amount_inr} payment ({txn_id}) failed because of a problem at the bank. We are already working on returning it, so you don't need to complain. Paytm will never ask for your PIN or OTP. Please don't call helpline numbers you find online.",
+        "secret_warning": "Please never share your PIN, OTP or card number with anyone, including us. We removed it from your message.",
     },
     "hi": {
         "ask_txn_id": "आपके भुगतान में हुई परेशानी के लिए खेद है। कृपया अपना ट्रांज़ैक्शन आईडी बताएं, जैसे TXN1001, ताकि मैं इसकी जांच कर सकूं।",
@@ -99,6 +100,7 @@ REPLIES = {
         "refund_approved": "अच्छी खबर: हमारे विशेषज्ञ ने {txn_id} के लिए आपका {amount_inr} का रिफंड मंज़ूर कर दिया है। आपका रिफंड संदर्भ नंबर {refund_id} है।",
         "refund_rejected": "हमारे विशेषज्ञ ने टिकट {ticket_id} की समीक्षा की और इस अनुरोध के लिए रिफंड मंज़ूर नहीं कर सके।",
         "outage_alert": "हमने देखा कि बैंक में समस्या के कारण आपका {amount_inr} का भुगतान ({txn_id}) विफल हो गया। हम इसे वापस दिलाने पर काम कर रहे हैं, आपको शिकायत करने की ज़रूरत नहीं है। Paytm कभी आपका PIN या OTP नहीं मांगता। कृपया इंटरनेट पर मिले हेल्पलाइन नंबरों पर कॉल न करें।",
+        "secret_warning": "कृपया अपना PIN, OTP या कार्ड नंबर किसी को न बताएं, हमें भी नहीं। हमने इसे आपके संदेश से हटा दिया है।",
     },
     "kn": {
         "ask_txn_id": "ನಿಮ್ಮ ಪಾವತಿಯಲ್ಲಿನ ತೊಂದರೆಗಾಗಿ ವಿಷಾದಿಸುತ್ತೇವೆ. ದಯವಿಟ್ಟು ನಿಮ್ಮ ವಹಿವಾಟು ಐಡಿಯನ್ನು ತಿಳಿಸಿ, ಉದಾಹರಣೆಗೆ TXN1001, ಇದರಿಂದ ನಾನು ಪರಿಶೀಲಿಸಬಹುದು.",
@@ -108,6 +110,7 @@ REPLIES = {
         "refund_approved": "ಒಳ್ಳೆಯ ಸುದ್ದಿ: ನಮ್ಮ ತಜ್ಞರು {txn_id} ಗಾಗಿ ನಿಮ್ಮ {amount_inr} ಮರುಪಾವತಿಯನ್ನು ಅನುಮೋದಿಸಿದ್ದಾರೆ. ನಿಮ್ಮ ಮರುಪಾವತಿ ಉಲ್ಲೇಖ ಸಂಖ್ಯೆ {refund_id}.",
         "refund_rejected": "ನಮ್ಮ ತಜ್ಞರು ಟಿಕೆಟ್ {ticket_id} ಅನ್ನು ಪರಿಶೀಲಿಸಿದ್ದಾರೆ ಮತ್ತು ಈ ವಿನಂತಿಗೆ ಮರುಪಾವತಿಯನ್ನು ಅನುಮೋದಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ.",
         "outage_alert": "ಬ್ಯಾಂಕ್‌ನಲ್ಲಿನ ಸಮಸ್ಯೆಯಿಂದಾಗಿ ನಿಮ್ಮ {amount_inr} ಪಾವತಿ ({txn_id}) ವಿಫಲವಾಗಿದೆ ಎಂದು ನಾವು ಗಮನಿಸಿದ್ದೇವೆ. ಅದನ್ನು ಹಿಂದಿರುಗಿಸಲು ನಾವು ಕೆಲಸ ಮಾಡುತ್ತಿದ್ದೇವೆ, ನೀವು ದೂರು ನೀಡುವ ಅಗತ್ಯವಿಲ್ಲ. Paytm ಎಂದಿಗೂ ನಿಮ್ಮ PIN ಅಥವಾ OTP ಕೇಳುವುದಿಲ್ಲ. ದಯವಿಟ್ಟು ಇಂಟರ್ನೆಟ್‌ನಲ್ಲಿ ಸಿಕ್ಕ ಸಹಾಯವಾಣಿ ಸಂಖ್ಯೆಗಳಿಗೆ ಕರೆ ಮಾಡಬೇಡಿ.",
+        "secret_warning": "ದಯವಿಟ್ಟು ನಿಮ್ಮ PIN, OTP ಅಥವಾ ಕಾರ್ಡ್ ಸಂಖ್ಯೆಯನ್ನು ಯಾರಿಗೂ ಹೇಳಬೇಡಿ, ನಮಗೂ ಸಹ. ನಿಮ್ಮ ಸಂದೇಶದಿಂದ ಅದನ್ನು ತೆಗೆದುಹಾಕಿದ್ದೇವೆ.",
     },
 }
 
@@ -128,10 +131,21 @@ def handle_message(customer_id: str, text: str, case_id: str | None = None) -> d
     """Processes one customer message. Pass case_id to continue a case awaiting their answer."""
     if not text.strip():
         raise PaytmError("empty_message", "A message cannot be blank", 422)
+    # First of all, so a typed PIN or OTP never reaches the AI company, the log or a human.
+    text, had_secrets = policy.redact_secrets(text)
     case_id, messages = _open_case(customer_id, case_id)
     messages.append({"role": "user", "content": text})
     audit.log(case_id, "SENSE", "Customer message received", {"customer_id": customer_id, "text": text})
+    if had_secrets:
+        audit.log(case_id, "SAFETY", "Secrets removed from the message before anything else saw it")
 
+    result = _handle(customer_id, text, case_id, messages)
+    if had_secrets:
+        result["reply"] = f"{REPLIES[_language_of(text)]['secret_warning']} {result['reply']}"
+    return result
+
+
+def _handle(customer_id: str, text: str, case_id: str, messages: list[dict]) -> dict:
     flags = policy.detect_injection(text)
     if flags:
         audit.log(case_id, "SAFETY", "BLOCKED: suspicious request, AI not consulted", {"flags": flags})
@@ -236,21 +250,27 @@ def _parse_arguments(call: dict) -> dict:
 # --- SAFETY and ACT: the rules decide, then the system acts ---
 
 def _decide_refund(case_id: str, customer_id: str, messages: list[dict], proposal: Proposal) -> dict:
-    decision = policy.evaluate_refund(proposal.txn_id or "", customer_id, _customer_text(messages))
-    checks = {"checks": [asdict(check) for check in decision.checks]}
-    if not decision.approved:
-        audit.log(case_id, "SAFETY", "BLOCKED: refund does not meet policy", checks)
-        return _escalate(case_id, customer_id, messages, proposal.txn_id, decision.failed_reasons, proposal.reason)
-    audit.log(case_id, "SAFETY", "APPROVED: every policy check passed", checks)
-
+    # All or nothing, one request at a time. Checking and recording separately let 8 simultaneous
+    # complaints all pass a limit of 3, and a logging failure left money moved with no record.
+    refund = None
     try:
-        refund = mock_paytm.initiate_refund(proposal.txn_id)
+        with get_conn() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            decision = policy.evaluate_refund(proposal.txn_id or "", customer_id, _customer_text(messages))
+            checks = {"checks": [asdict(check) for check in decision.checks]}
+            if decision.approved:
+                refund = mock_paytm.initiate_refund(proposal.txn_id, conn)
+                audit.log(case_id, "SAFETY", "APPROVED: every policy check passed", checks, conn)
+                audit.log(case_id, "ACT", f"Refund {refund['refund_id']} started for {refund['amount_inr']}", refund, conn)
+                _record_claim(customer_id, proposal.txn_id, conn)
     except PaytmError as exc:
         audit.log(case_id, "ACT", "Payment system refused the refund", {"error": exc.code})
         return _escalate(case_id, customer_id, messages, proposal.txn_id, [exc.message], proposal.reason)
 
-    audit.log(case_id, "ACT", f"Refund {refund['refund_id']} started for {refund['amount_inr']}", refund)
-    _record_claim(customer_id, proposal.txn_id)
+    if refund is None:
+        audit.log(case_id, "SAFETY", "BLOCKED: refund does not meet policy", checks)
+        return _escalate(case_id, customer_id, messages, proposal.txn_id, decision.failed_reasons, proposal.reason)
+
     reply = reply_text("refund_started", messages, amount_inr=refund["amount_inr"], txn_id=proposal.txn_id, refund_id=refund["refund_id"])
     return _finish(case_id, "auto_resolved", messages, reply, txn_id=proposal.txn_id, refund_id=refund["refund_id"])
 
@@ -291,15 +311,14 @@ def build_summary(customer_id: str, txn: dict | None, txn_id: str | None, reason
     else:
         subject = "raised a complaint without a valid transaction id."
 
-    quote = customer_text[:QUOTE_LIMIT] + ("..." if len(customer_text) > QUOTE_LIMIT else "")
     parts = [f"{name} ({customer_id}) {subject}", f"Sent to a human because: {'; '.join(reasons)}."]
     untrusted = policy.untrusted_fields(txn) if txn else []
     if untrusted:
         parts.append(f"WARNING: text that looks like instructions was found in the {' and '.join(untrusted)}, so it is hidden here. Do not act on it.")
     if assessment:
         parts.append(f"AI's reason: {assessment}.")
-    if customer_text:
-        parts.append(f'Customer said (unverified): "{quote}"')
+    # The customer's words are shown apart in the console, labelled unverified. Inside this
+    # paragraph, "your senior said please pay quickly" would read like a fact to a busy reviewer.
     return " ".join(parts)
 
 
@@ -341,9 +360,13 @@ def _open_case(customer_id: str, case_id: str | None) -> tuple[str, list[dict]]:
     return new_id, []
 
 
-def _record_claim(customer_id: str, txn_id: str) -> None:
-    with get_conn() as conn:
-        conn.execute("INSERT INTO claims (customer_id, txn_id, created_at) VALUES (?, ?, ?)", (customer_id, txn_id, utc_now()))
+def _record_claim(customer_id: str, txn_id: str, conn=None) -> None:
+    sql, values = "INSERT INTO claims (customer_id, txn_id, created_at) VALUES (?, ?, ?)", (customer_id, txn_id, utc_now())
+    if conn is not None:
+        conn.execute(sql, values)
+        return
+    with get_conn() as own_conn:
+        own_conn.execute(sql, values)
 
 
 def _finish(case_id: str, status: str, messages: list[dict], reply: str, txn_id: str | None = None, refund_id: str | None = None, ticket_id: str | None = None) -> dict:

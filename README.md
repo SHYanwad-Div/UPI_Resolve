@@ -41,9 +41,7 @@ Sends one complaint through the real model and prints every SENSE, AI, SAFETY an
 
 The first argument is the customer. Reset the demo (below) to see the cheat sheet of who owns which transaction.
 
-## Try the APIs directly
-
-With the backend running, open http://127.0.0.1:8000/docs. The database seeds itself on first run.
+The database seeds itself on first run. Staff sign in with a name and PIN from `RESOLVE_STAFF_PINS` in `backend/.env`.
 
 Use `127.0.0.1`, not `localhost`. On Windows, `localhost` can add about 2 seconds to every call.
 
@@ -109,7 +107,19 @@ We wrote these complaints, so the result shows the system works. It does not mea
 
 The console puts the most urgent case first, using RBI's rules for a UPI payment that debited the customer but did not complete (circular RBI/2019-20/67, annex row 4): a transfer must be reversed by T+1 and a merchant payment by T+5, where T is the calendar date of the transaction. After that the customer is owed ₹100 per day. The clock only runs while the customer's money is actually stuck.
 
-The console has no login, because this is a demo.
+## Money controls
+
+We attacked our own system, found loopholes, and closed these:
+
+- **Signed-in, named staff:** every approval records who made it. There is no public refund route.
+- **Two people:** refunds over ₹25,000, flagged refunds, and groups over ₹1,00,000 need two different people.
+- **Limits:** ₹5,000 per customer in 24 hours, 3 claims a week checked in one atomic step, and an automatic stop at ₹5,00,000 a day. These amounts are our demo choices.
+- **Money and records together:** a refund and its log entry are saved together or not at all.
+- **Secrets removed:** PINs, OTPs, card and account numbers are removed before the AI, log or staff see them.
+- **Flood limits:** 6 messages a minute and 5 open tickets per customer.
+- **Untrusted words shown apart:** customers' words sit outside the summary, labelled unverified.
+
+**Not solved, and needed before real money:** real customer login (the demo's chat trusts the customer ID), the firm's real staff identity system, comparing refunds with bank records to catch double payment, a tamper-proof log (anyone with database access can still erase it), and an outside security review.
 
 ## Mock Paytm APIs
 

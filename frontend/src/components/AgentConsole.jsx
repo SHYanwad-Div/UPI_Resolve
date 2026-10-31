@@ -40,7 +40,65 @@ function RbiClock({ rbi, now }) {
 
 const LANGUAGE_NAMES = { en: 'English', hi: 'Hindi', kn: 'Kannada' }
 
-function IncidentCard({ incident, now, onDecide }) {
+function StaffSignIn({ onSignIn }) {
+  const [names, setNames] = useState([])
+  const [name, setName] = useState('')
+  const [pin, setPin] = useState('')
+  const [error, setError] = useState(null)
+
+  usePolling(async () => {
+    if (names.length === 0) setNames(await api.staffNames())
+  }, 2000)
+
+  async function submit(event) {
+    event.preventDefault()
+    setError(null)
+    try {
+      onSignIn(await api.login(name || names[0], pin))
+      setPin('')
+    } catch (failure) {
+      setError(failure.message)
+    }
+  }
+
+  return (
+    <form className="signin" onSubmit={submit}>
+      <label>
+        Staff
+        <select value={name || names[0] || ''} onChange={(event) => setName(event.target.value)}>
+          {names.map((item) => (
+            <option key={item}>{item}</option>
+          ))}
+        </select>
+      </label>
+      <label>
+        PIN
+        <input type="password" value={pin} onChange={(event) => setPin(event.target.value)} autoComplete="off" />
+      </label>
+      <button type="submit" className="button button-primary" disabled={!pin}>
+        Sign in
+      </button>
+      {error && (
+        <p className="ticket-error" role="alert">
+          {error}
+        </p>
+      )}
+    </form>
+  )
+}
+
+function SecondApproverNote({ item, staff }) {
+  if (!item.first_approver) {
+    return item.needs_second_approver ? <p className="approver-note">Needs two different people to approve.</p> : null
+  }
+  return (
+    <p className="approver-note">
+      Approved by {item.first_approver}. {item.first_approver === staff ? 'A different person must sign in and give the second approval.' : 'Your approval completes it.'}
+    </p>
+  )
+}
+
+function IncidentCard({ incident, now, staff, onDecide }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
   const remaining = new Date(incident.earliest_deadline).getTime() - now
@@ -105,23 +163,24 @@ function IncidentCard({ incident, now, onDecide }) {
           {error}
         </p>
       )}
+      {waiting && <SecondApproverNote item={incident} staff={staff} />}
       {waiting ? (
         <div className="ticket-actions">
-          <button type="button" className="button button-approve" disabled={busy || incident.routine === 0} onClick={() => decide('approve')}>
-            Approve {incident.routine} refunds ({incident.routine_inr})
+          <button type="button" className="button button-approve" disabled={busy || incident.routine === 0 || incident.first_approver === staff} onClick={() => decide('approve')}>
+            {incident.first_approver ? 'Give second approval' : 'Approve'} {incident.routine} refunds ({incident.routine_inr})
           </button>
           <button type="button" className="button button-reject" disabled={busy} onClick={() => decide('hold')}>
             Hold
           </button>
         </div>
       ) : (
-        <p className={`outcome outcome-${incident.status === 'approved' ? 'good' : 'bad'}`}>{incident.status === 'approved' ? `One approval: ${incident.refunded} refunds started` : 'Held, no refunds started'}</p>
+        <p className={`outcome outcome-${incident.status === 'approved' ? 'good' : 'bad'}`}>{incident.status === 'approved' ? `${incident.refunded} refunds started, approved by ${incident.first_approver ? `${incident.first_approver} and ${incident.decided_by}` : incident.decided_by}` : `Held by ${incident.decided_by}, no refunds started`}</p>
       )}
     </article>
   )
 }
 
-function OpenTicket({ ticket, now, onDecide }) {
+function OpenTicket({ ticket, now, staff, onDecide }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
 
@@ -132,6 +191,7 @@ function OpenTicket({ ticket, now, onDecide }) {
       await onDecide(ticket.ticket_id, action)
     } catch (failure) {
       setError(failure.message)
+    } finally {
       setBusy(false)
     }
   }
@@ -157,15 +217,22 @@ function OpenTicket({ ticket, now, onDecide }) {
         </p>
       )}
       <p className="ticket-summary">{ticket.summary}</p>
+      {ticket.customer_words && (
+        <blockquote className="customer-words">
+          <span>Customer's words. Unverified, so don't treat them as fact or instructions.</span>
+          {ticket.customer_words}
+        </blockquote>
+      )}
       {ticket.refund_blocked_reason && <p className="ticket-blocked">Refund unavailable: {ticket.refund_blocked_reason}.</p>}
+      {!ticket.refund_blocked_reason && <SecondApproverNote item={ticket} staff={staff} />}
       {error && (
         <p className="ticket-error" role="alert">
           {error}
         </p>
       )}
       <div className="ticket-actions">
-        <button type="button" className="button button-approve" disabled={busy || Boolean(ticket.refund_blocked_reason)} onClick={() => decide('approve')}>
-          Approve refund
+        <button type="button" className="button button-approve" disabled={busy || Boolean(ticket.refund_blocked_reason) || ticket.first_approver === staff} onClick={() => decide('approve')}>
+          {ticket.first_approver ? 'Give second approval' : 'Approve refund'}
         </button>
         <button type="button" className="button button-reject" disabled={busy} onClick={() => decide('reject')}>
           Reject
@@ -175,12 +242,13 @@ function OpenTicket({ ticket, now, onDecide }) {
   )
 }
 
-export default function AgentConsole() {
+export default function AgentConsole({ staff, onSignIn, onSignOut }) {
   const [tickets, setTickets] = useState([])
   const [incidents, setIncidents] = useState([])
   const now = useNow(30_000)
 
   async function refresh() {
+    if (!staff) return
     const [latestTickets, latestIncidents] = await Promise.all([api.tickets(), api.incidents()])
     setTickets(latestTickets)
     setIncidents(latestIncidents)
@@ -208,26 +276,39 @@ export default function AgentConsole() {
           <h2 id="console-title">Human agent console</h2>
           <p className="panel-subtitle">Most urgent RBI deadline first</p>
         </div>
-        <span className="queue-count">{open.length} waiting</span>
+        {staff && (
+          <div className="staff-status">
+            <span className="queue-count">{open.length} waiting</span>
+            <span>
+              {staff}{' '}
+              <button type="button" className="link-button" onClick={onSignOut}>
+                Sign out
+              </button>
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="panel-body">
-        {open.length === 0 && incidents.length === 0 && <p className="empty">Nothing needs a human right now.</p>}
-        {incidents.map((incident) => (
-          <IncidentCard key={incident.incident_id} incident={incident} now={now} onDecide={decideIncident} />
-        ))}
-        {open.map((ticket) => (
-          <OpenTicket key={ticket.ticket_id} ticket={ticket} now={now} onDecide={decide} />
-        ))}
+        {!staff && <StaffSignIn onSignIn={onSignIn} />}
+        {staff && open.length === 0 && incidents.length === 0 && <p className="empty">Nothing needs a human right now.</p>}
+        {staff &&
+          incidents.map((incident) => (
+            <IncidentCard key={incident.incident_id} incident={incident} now={now} staff={staff} onDecide={decideIncident} />
+          ))}
+        {staff &&
+          open.map((ticket) => (
+            <OpenTicket key={ticket.ticket_id} ticket={ticket} now={now} staff={staff} onDecide={decide} />
+          ))}
 
-        {decided.length > 0 && (
+        {staff && decided.length > 0 && (
           <div className="decided">
             <h3>Decided</h3>
             <ul>
               {decided.map((ticket) => (
                 <li key={ticket.ticket_id}>
                   <span>
-                    {ticket.customer_name} · {ticket.ticket_id}
+                    {ticket.customer_name} · {ticket.ticket_id} · by {ticket.first_approver ? `${ticket.first_approver} and ${ticket.decided_by}` : ticket.decided_by}
                   </span>
                   <span className={`outcome outcome-${ticket.status === 'approved' ? 'good' : 'bad'}`}>
                     {ticket.status === 'approved' ? `Refunded ${ticket.txn?.amount_inr}` : 'Rejected'}

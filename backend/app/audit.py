@@ -4,13 +4,16 @@ import json
 from app.db import get_conn, utc_now
 
 
-def log(case_id: str, stage: str, event: str, detail: dict | None = None) -> None:
+def log(case_id: str, stage: str, event: str, detail: dict | None = None, conn=None) -> None:
+    """Pass conn to save this entry together with the money movement it describes."""
     payload = json.dumps(detail, ensure_ascii=False) if detail is not None else None
-    with get_conn() as conn:
-        conn.execute(
-            "INSERT INTO audit_log (case_id, stage, event, detail, created_at) VALUES (?, ?, ?, ?, ?)",
-            (case_id, stage, event, payload, utc_now()),
-        )
+    sql = "INSERT INTO audit_log (case_id, stage, event, detail, created_at) VALUES (?, ?, ?, ?, ?)"
+    values = (case_id, stage, event, payload, utc_now())
+    if conn is not None:
+        conn.execute(sql, values)
+        return
+    with get_conn() as own_conn:
+        own_conn.execute(sql, values)
 
 
 def since(after_id: int) -> dict:

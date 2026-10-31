@@ -23,6 +23,7 @@ function groupByCase(entries) {
 }
 
 function safetyTone(event) {
+  if (event.startsWith('FIRST APPROVAL')) return 'neutral'
   if (event.includes('APPROVED')) return 'good'
   if (event.includes('BLOCKED') || event.includes('REJECTED')) return 'bad'
   return 'neutral'
@@ -83,11 +84,12 @@ function StepDetail({ step }) {
   return null
 }
 
-export default function DecisionLog() {
+export default function DecisionLog({ staff }) {
   const [entries, setEntries] = useState([])
   const lastId = useRef(0)
 
   const healthy = usePolling(async () => {
+    if (!staff) return
     const feed = await api.audit(lastId.current)
     if (feed.latest_id < lastId.current) {
       // The demo was reset, so what's on screen no longer exists.
@@ -119,11 +121,12 @@ export default function DecisionLog() {
             <span className="stage stage-act">ACT</span>
           </p>
         </div>
-        <span className={`live-pill ${healthy ? 'live-on' : 'live-off'}`}>{healthy ? 'Live' : 'Reconnecting'}</span>
+        {staff && <span className={`live-pill ${healthy ? 'live-on' : 'live-off'}`}>{healthy ? 'Live' : 'Reconnecting'}</span>}
       </div>
 
       <div className="panel-body" role="log" aria-live="polite">
-        {cases.length === 0 && <p className="empty">Every step of every decision appears here as it happens.</p>}
+        {!staff && <p className="empty">Staff only. Sign in on the right to see every decision.</p>}
+        {staff && cases.length === 0 && <p className="empty">Every step of every decision appears here as it happens.</p>}
         {cases.map((item) => {
           const outcome = caseOutcome(item.steps)
           return (

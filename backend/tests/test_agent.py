@@ -92,8 +92,9 @@ def test_high_value_goes_to_a_human_with_a_useful_summary(use_model):
     assert refund_count() == 0
     ticket = ticket_for(result)
     assert ticket["txn_id"] == "TXN1012"
-    for expected in ("Ananya Rao", "₹15,000.00", "Sunrise PG Rent", "over the ₹2,000.00", "My rent payment TXN1012 failed"):
+    for expected in ("Ananya Rao", "₹15,000.00", "Sunrise PG Rent", "over the ₹2,000.00"):
         assert expected in ticket["summary"]
+    assert "My rent payment" not in ticket["summary"]  # The customer's words are shown apart.
     assert "\n" not in ticket["summary"]  # The brief asks for one paragraph.
 
 
@@ -285,18 +286,14 @@ def test_malformed_tool_arguments_do_not_crash(use_model):
 
 
 def test_double_refund_race_is_caught(use_model, monkeypatch):
-    """Another request refunds this transaction between the policy check and the payment."""
+    """Even if the rules were somehow wrong about an earlier refund, the database refuses a second one."""
     from app import mock_paytm
 
     use_model(calls(tool_call("propose_refund", txn_id="TXN1001", reason="x")))
-    real_evaluate = agent.policy.evaluate_refund
+    real_decision = agent.policy.evaluate_refund("TXN1001", "C01")
+    mock_paytm.initiate_refund("TXN1001")
+    monkeypatch.setattr(agent.policy, "evaluate_refund", lambda *args: real_decision)
 
-    def evaluate_then_lose_the_race(*args):
-        decision = real_evaluate(*args)
-        mock_paytm.initiate_refund("TXN1001")
-        return decision
-
-    monkeypatch.setattr(agent.policy, "evaluate_refund", evaluate_then_lose_the_race)
     result = agent.handle_message("C01", "TXN1001 failed")
 
     assert result["status"] == "escalated"

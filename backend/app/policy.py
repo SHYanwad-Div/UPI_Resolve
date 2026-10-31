@@ -17,6 +17,13 @@ AUTO_REFUND_LIMIT_PAISE = 200_000  # Rs 2,000, inclusive.
 CLAIM_LIMIT_PER_WEEK = 3  # A customer with this many earlier claims goes to a human.
 CLAIM_WINDOW = timedelta(days=7)
 AMOUNT_TOLERANCE_PAISE = 100  # People round: "Rs 350" for a Rs 349 payment is not suspicious.
+# Small refunds add up, so these cap the totals over any 24 hours. The daily budget is an automatic
+# stop: if a bug or fraud produces a flood of "valid" refunds, the damage has a ceiling.
+CUSTOMER_DAILY_LIMIT_PAISE = 500_000  # Rs 5,000
+DAILY_BUDGET_PAISE = 50_000_000  # Rs 5,00,000
+# Above these, one person is not enough: a different second person must also approve.
+SECOND_APPROVER_ABOVE_PAISE = 2_500_000  # Rs 25,000
+GROUP_SECOND_APPROVER_ABOVE_PAISE = 10_000_000  # Rs 1,00,000
 
 
 @dataclass(frozen=True)
@@ -46,15 +53,19 @@ def evaluate_refund(txn_id: str, customer_id: str, customer_text: str = "") -> D
     except PaytmError:
         return Decision((Check("transaction_exists", False, f"No transaction with id {txn_id}"),))
 
-    return decide(txn, customer_id, claims_this_week(customer_id), customer_text)
+    return decide(txn, customer_id, claims_this_week(customer_id), customer_text, refunded_last_day(customer_id), refunded_last_day())
 
 
-def decide(txn: dict, customer_id: str, claims: int, customer_text: str = "") -> Decision:
+def decide(txn: dict, customer_id: str, claims: int, customer_text: str = "", customer_spent: int = 0, total_spent: int = 0) -> Decision:
     """The rules themselves, with no database access, so a whole outage can be checked at once."""
     txn_id = txn["txn_id"]
     limit = format_inr(AUTO_REFUND_LIMIT_PAISE)
     amount = txn["amount_paise"]
     untrusted = untrusted_fields(txn)
+    # Totals only matter for amounts that could auto-refund, so an over-limit payment fails one rule, not three.
+    small = amount <= AUTO_REFUND_LIMIT_PAISE
+    customer_ok = not small or customer_spent + amount <= CUSTOMER_DAILY_LIMIT_PAISE
+    budget_ok = not small or total_spent + amount <= DAILY_BUDGET_PAISE
     return Decision(
         (
             Check("belongs_to_customer", txn["customer_id"] == customer_id, f"{txn_id} belongs to this customer" if txn["customer_id"] == customer_id else f"{txn_id} does not belong to this customer"),
@@ -64,8 +75,21 @@ def decide(txn: dict, customer_id: str, claims: int, customer_text: str = "") ->
             Check("under_claim_limit", claims < CLAIM_LIMIT_PER_WEEK, f"{claims} earlier claim{'' if claims == 1 else 's'} this week (limit: fewer than {CLAIM_LIMIT_PER_WEEK})"),
             Check("amount_matches_complaint", _amount_matches(customer_text, amount), _amount_detail(customer_text, txn)),
             Check("payment_data_clean", not untrusted, f"Hidden instructions found in the {' and '.join(untrusted)}" if untrusted else "No hidden instructions in the payment details"),
+            Check("within_customer_daily_limit", customer_ok, f"{format_inr(customer_spent)} refunded to this customer in 24 hours (limit: {format_inr(CUSTOMER_DAILY_LIMIT_PAISE)})"),
+            Check("within_daily_budget", budget_ok, f"{format_inr(total_spent)} auto-refunded in 24 hours (automatic stop at {format_inr(DAILY_BUDGET_PAISE)})"),
         )
     )
+
+
+def refunded_last_day(customer_id: str | None = None) -> int:
+    cutoff = to_iso(datetime.now(timezone.utc) - timedelta(days=1))
+    sql = "SELECT COALESCE(SUM(r.amount_paise), 0) FROM refunds r JOIN transactions t ON t.txn_id = r.txn_id WHERE r.created_at >= ?"
+    params = [cutoff]
+    if customer_id:
+        sql += " AND t.customer_id = ?"
+        params.append(customer_id)
+    with get_conn() as conn:
+        return conn.execute(sql, params).fetchone()[0]
 
 
 def _amount_detail(customer_text: str, txn: dict) -> str:
@@ -114,7 +138,7 @@ _INJECTION_PATTERNS = (
 # else is treated as a possible attack. This only decides what a human is warned about: the
 # model never reads these fields, so a phrase that slips past this list still cannot steer it.
 MAX_PAYMENT_TEXT = 40
-_DATA_SUSPICIOUS = _pattern(r"\b(system|assistant|compliance|verified|approve\w*|ignore|instructions?|prompts?|reviewer|tool|propose_\w+|refund\w*)\b|[:{}<>\[\]]|नियम|निर्देश|ನಿಯಮ|ಸೂಚನೆ")
+_DATA_SUSPICIOUS = _pattern(r"\b(system|assistant|compliance|verified|approve\w*|ignore|instructions?|prompts?|reviewer|tool|propose_\w+|refund\w*|manager|rbi|cleared|immediately|urgent\w*|pay\s+(now|immediately|full)|full\s+amount)\b|[:{}<>\[\]]|नियम|निर्देश|ನಿಯಮ|ಸೂಚನೆ")
 
 
 def payment_text_is_suspicious(text: str | None) -> bool:
@@ -131,6 +155,22 @@ def untrusted_fields(txn: dict) -> list[str]:
 
 def safe_payee(payee_name: str) -> str:
     return "[suspicious payee name hidden]" if payment_text_is_suspicious(payee_name) else payee_name
+
+
+# People type secrets into support chats. These must never reach the AI company or be stored.
+_SECRET_PATTERNS = (
+    re.compile(r"((?:upi\s*)?m?pin|पिन|ಪಿನ್|otp|ओटीपी|ಒಟಿಪಿ|cvv|password|पासवर्ड|ಪಾಸ್‌?ವರ್ಡ್)(\D{0,15})\d{3,8}", re.IGNORECASE),
+    re.compile(r"(?<![\d-])(?:\d[ -]?){12,19}(?![\d-])"),  # Card, Aadhaar and long account numbers.
+    re.compile(r"(account|a/c|खाता|ಖಾತೆ)(\D{0,15})\d{8,}", re.IGNORECASE),
+)
+
+
+def redact_secrets(text: str) -> tuple[str, bool]:
+    """Returns the text with secrets removed, and whether anything was removed."""
+    cleaned = _SECRET_PATTERNS[0].sub(r"\1\2[removed]", text)
+    cleaned = _SECRET_PATTERNS[2].sub(r"\1\2[removed]", cleaned)
+    cleaned = _SECRET_PATTERNS[1].sub("[number removed]", cleaned)
+    return cleaned, cleaned != text
 
 
 def first_txn_id(text: str) -> str | None:

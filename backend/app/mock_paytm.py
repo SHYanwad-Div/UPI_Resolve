@@ -62,46 +62,49 @@ def get_transaction(txn_id: str) -> dict:
     return txn
 
 
-def initiate_refund(txn_id: str) -> dict:
-    refund = {"refund_id": f"RFD-{uuid4().hex[:8].upper()}", "txn_id": txn_id, "created_at": utc_now()}
-    with get_conn() as conn:
-        txn = conn.execute("SELECT status, amount_paise FROM transactions WHERE txn_id = ?", (txn_id,)).fetchone()
-        if txn is None:
-            raise _txn_not_found(txn_id)
-        if txn["status"] != "failed_debited":
-            raise PaytmError("not_refundable", f"{txn_id} has status {txn['status']}; only failed_debited can be refunded", 422)
+def initiate_refund(txn_id: str, conn=None) -> dict:
+    """Pass conn to make the refund part of a larger all-or-nothing database transaction."""
+    if conn is None:
+        with get_conn() as own_conn:
+            return initiate_refund(txn_id, own_conn)
 
-        refund["amount_paise"] = txn["amount_paise"]
-        refund["amount_inr"] = format_inr(txn["amount_paise"])
-        # Insert and catch the UNIQUE error instead of checking first: with a check,
-        # two simultaneous requests could both see "no refund yet" and both pay out.
-        try:
-            conn.execute(
-                "INSERT INTO refunds (refund_id, txn_id, amount_paise, created_at) VALUES (?, ?, ?, ?)",
-                (refund["refund_id"], txn_id, refund["amount_paise"], refund["created_at"]),
-            )
-        except sqlite3.IntegrityError:
-            raise PaytmError("already_refunded", f"{txn_id} has already been refunded", 409) from None
+    refund = {"refund_id": f"RFD-{uuid4().hex[:8].upper()}", "txn_id": txn_id, "created_at": utc_now()}
+    txn = conn.execute("SELECT status, amount_paise FROM transactions WHERE txn_id = ?", (txn_id,)).fetchone()
+    if txn is None:
+        raise _txn_not_found(txn_id)
+    if txn["status"] != "failed_debited":
+        raise PaytmError("not_refundable", f"{txn_id} has status {txn['status']}; only failed_debited can be refunded", 422)
+
+    refund["amount_paise"] = txn["amount_paise"]
+    refund["amount_inr"] = format_inr(txn["amount_paise"])
+    # Insert and catch the UNIQUE error instead of checking first: with a check,
+    # two simultaneous requests could both see "no refund yet" and both pay out.
+    try:
+        conn.execute(
+            "INSERT INTO refunds (refund_id, txn_id, amount_paise, created_at) VALUES (?, ?, ?, ?)",
+            (refund["refund_id"], txn_id, refund["amount_paise"], refund["created_at"]),
+        )
+    except sqlite3.IntegrityError:
+        raise PaytmError("already_refunded", f"{txn_id} has already been refunded", 409) from None
     return refund
 
 
-def initiate_refunds(txn_ids: list[str]) -> dict[str, dict]:
-    """A whole approved group in one database transaction. Skips anything not refundable."""
+def initiate_refunds(txn_ids: list[str], conn) -> dict[str, dict]:
+    """A whole approved group inside the caller's database transaction. Skips anything not refundable."""
     refunds = {}
-    with get_conn() as conn:
-        for txn_id in txn_ids:
-            txn = conn.execute(
-                "SELECT amount_paise FROM transactions WHERE txn_id = ? AND status = 'failed_debited' AND txn_id NOT IN (SELECT txn_id FROM refunds)",
-                (txn_id,),
-            ).fetchone()
-            if txn is None:
-                continue
-            refund_id = f"RFD-{uuid4().hex[:8].upper()}"
-            conn.execute(
-                "INSERT INTO refunds (refund_id, txn_id, amount_paise, created_at) VALUES (?, ?, ?, ?)",
-                (refund_id, txn_id, txn["amount_paise"], utc_now()),
-            )
-            refunds[txn_id] = {"refund_id": refund_id, "amount_paise": txn["amount_paise"], "amount_inr": format_inr(txn["amount_paise"])}
+    for txn_id in txn_ids:
+        txn = conn.execute(
+            "SELECT amount_paise FROM transactions WHERE txn_id = ? AND status = 'failed_debited' AND txn_id NOT IN (SELECT txn_id FROM refunds)",
+            (txn_id,),
+        ).fetchone()
+        if txn is None:
+            continue
+        refund_id = f"RFD-{uuid4().hex[:8].upper()}"
+        conn.execute(
+            "INSERT INTO refunds (refund_id, txn_id, amount_paise, created_at) VALUES (?, ?, ?, ?)",
+            (refund_id, txn_id, txn["amount_paise"], utc_now()),
+        )
+        refunds[txn_id] = {"refund_id": refund_id, "amount_paise": txn["amount_paise"], "amount_inr": format_inr(txn["amount_paise"])}
     return refunds
 
 

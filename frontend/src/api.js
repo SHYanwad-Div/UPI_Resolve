@@ -1,12 +1,30 @@
-async function request(path, options) {
+// Kept in memory only, so closing the page signs the person out.
+let staffToken = null
+let onSignedOut = () => {}
+
+export function setStaffToken(token) {
+  staffToken = token
+}
+
+export function setSignedOutHandler(handler) {
+  onSignedOut = handler
+}
+
+async function request(path, options = {}) {
+  const headers = { ...options.headers, ...(staffToken ? { Authorization: `Bearer ${staffToken}` } : {}) }
   let response
   try {
-    response = await fetch(`/api${path}`, options)
+    response = await fetch(`/api${path}`, { ...options, headers })
   } catch {
     throw new Error("Can't reach Resolve. Is the backend running?")
   }
   const body = await response.json().catch(() => null)
   if (!response.ok) {
+    if (response.status === 401 && staffToken) {
+      // The session ended, for example because the backend restarted.
+      staffToken = null
+      onSignedOut()
+    }
     const error = new Error(body?.message ?? 'Something went wrong. Please try again.')
     error.status = response.status
     throw error
@@ -37,4 +55,6 @@ export const api = {
   holdIncident: (incidentId) => post(`/incidents/${incidentId}/hold`),
   notifications: (afterId) => request(`/notifications?after=${afterId}`),
   scoreboard: () => request('/scoreboard'),
+  staffNames: () => request('/staff'),
+  login: (name, pin) => post('/staff/login', { name, pin }),
 }

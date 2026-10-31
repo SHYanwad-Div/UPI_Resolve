@@ -79,7 +79,7 @@ def test_every_customer_is_told_first_in_their_own_language(incident):
 
 def test_no_money_moves_until_a_human_approves_then_only_routine_is_paid(incident):
     assert group_refunds() == 0
-    result = outage.approve(incident["incident_id"])
+    result = outage.approve(incident["incident_id"], "asha")
     assert result["refunded"] == incident["routine"]
     assert count("SELECT COUNT(*) FROM incident_items WHERE route = 'human' AND refund_id IS NOT NULL") == 0
     assert count("SELECT COUNT(*) FROM incident_items i JOIN transactions t ON t.txn_id = i.txn_id WHERE i.refund_id IS NOT NULL AND t.amount_paise > ?", policy.AUTO_REFUND_LIMIT_PAISE) == 0
@@ -89,23 +89,23 @@ def test_rules_run_again_at_approval(incident):
     with db.get_conn() as conn:
         txn_id = conn.execute("SELECT txn_id FROM incident_items WHERE route = 'routine' LIMIT 1").fetchone()["txn_id"]
         conn.execute("UPDATE transactions SET status = 'success' WHERE txn_id = ?", (txn_id,))
-    result = outage.approve(incident["incident_id"])
+    result = outage.approve(incident["incident_id"], "asha")
     assert result["skipped"] == 1
     assert result["refunded"] == incident["routine"] - 1
 
 
 @pytest.mark.parametrize("first, second", [("approve", "approve"), ("approve", "hold"), ("hold", "approve")])
 def test_a_group_can_only_be_decided_once(incident, first, second):
-    getattr(outage, first)(incident["incident_id"])
+    getattr(outage, first)(incident["incident_id"], "asha")
     paid = group_refunds()
     with pytest.raises(outage.PaytmError) as error:
-        getattr(outage, second)(incident["incident_id"])
+        getattr(outage, second)(incident["incident_id"], "ravi")
     assert error.value.http_status == 409
     assert group_refunds() == paid
 
 
 def test_hold_pays_nothing(incident):
-    outage.hold(incident["incident_id"])
+    outage.hold(incident["incident_id"], "asha")
     assert group_refunds() == 0
 
 
@@ -184,8 +184,9 @@ def test_one_attack_counts_once_on_the_scoreboard(fresh_db, monkeypatch):
     assert views.scoreboard()["attacks_blocked"] == 2
 
 
-def test_full_flow_through_the_api_and_scoreboard(model):
+def test_full_flow_through_the_api_and_scoreboard(model, sign_in):
     with TestClient(app) as client:
+        sign_in(client)
         before = client.get("/api/scoreboard").json()
         assert before["auto_resolved"] == 0 and before["average_seconds"] is None
 
@@ -198,6 +199,10 @@ def test_full_flow_through_the_api_and_scoreboard(model):
         assert middle["auto_resolved"] == 0
         assert middle["attacks_blocked"] == 1
 
+        first = client.post(f"/api/incidents/{incident['incident_id']}/approve").json()
+        assert first["status"] == "needs_second_approver"
+        assert client.post(f"/api/incidents/{incident['incident_id']}/approve").status_code == 409  # Same person again.
+        sign_in(client, "ravi")
         approved = client.post(f"/api/incidents/{incident['incident_id']}/approve").json()
         after = client.get("/api/scoreboard").json()
         assert after["auto_resolved"] == approved["refunded"]
