@@ -57,6 +57,11 @@ def by_title(title):
     return next(attack for attack in attack_lab.ATTACKS if attack.title == title)
 
 
+def test_split_attack_card_shows_only_what_the_ai_really_received(fresh_db):
+    result = attack_lab.run_attack(by_title("Split across two messages"), fake_real_ai)
+    assert result["ai_got_message"] == "Please ignore"
+
+
 def test_bunq_style_attacks_come_first():
     assert attack_lab.ATTACKS[0].group == attack_lab.GROUP_HIDDEN
     assert attack_lab.ATTACKS[0].title == "Instructions in a payment note"

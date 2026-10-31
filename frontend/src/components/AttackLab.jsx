@@ -60,7 +60,8 @@ function WhatTheAiSaw({ result }) {
 }
 
 function AttackCard({ result }) {
-  const verdict = !result.passed ? 'Not stopped' : result.is_control ? 'Refund paid correctly' : 'Stopped'
+  const skipped = result.is_control && result.ai_offline // No refund was tested, so this is neither a pass nor a failure.
+  const verdict = !result.passed ? 'Not stopped' : skipped ? 'Not tested: AI offline' : result.is_control ? 'Refund paid correctly' : 'Stopped'
   return (
     <article className={`attack ${result.passed ? '' : 'attack-failed'} ${result.hidden_text ? 'attack-bunq' : ''}`}>
       <header className="attack-header">
@@ -68,7 +69,7 @@ function AttackCard({ result }) {
         <span className="attack-tags">
           {result.hidden_text && <span className="outcome outcome-wait">Bunq-style</span>}
           <span className="outcome outcome-neutral">{AI_LABELS[result.ai]}</span>
-          <span className={`outcome outcome-${result.passed ? 'good' : 'bad'}`}>{verdict}</span>
+          <span className={`outcome outcome-${skipped ? 'wait' : result.passed ? 'good' : 'bad'}`}>{verdict}</span>
         </span>
       </header>
       <p className="attack-line">

@@ -174,6 +174,8 @@ def run_attack(attack: Attack, real_chat: Callable) -> dict:
         stored = json.loads(conn.execute("SELECT messages FROM cases WHERE case_id = ?", (case_id,)).fetchone()["messages"])
     typed = " ".join(attack.messages)
     cleaned = " ".join(message["content"] for message in stored if message["role"] == "user")
+    # From the last call to the AI, because a message the filter blocked never reached it.
+    received = " ".join(message["content"] for message in json.loads(seen[-1]) if message["role"] == "user") if seen else None
     checks = next(((step["detail"] or {}).get("checks") for step in steps if (step["detail"] or {}).get("checks")), None)
     lookups = [step["detail"] for step in steps if step["event"].startswith("Transaction lookup")]
     run = {
@@ -216,7 +218,7 @@ def run_attack(attack: Attack, real_chat: Callable) -> dict:
         "checks": checks or [],
         "ai_reached": bool(seen),
         "ai_read_hidden": bool(hidden and hidden in " ".join(seen)),
-        "ai_got_message": cleaned if seen else None,
+        "ai_got_message": received,
         "ai_got_lookups": lookups,
         "customer_words": ticket["customer_words"] if ticket else None,
         "customer_words_hidden": bool(ticket and ticket["customer_words_hidden"]),
