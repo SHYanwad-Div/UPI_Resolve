@@ -89,6 +89,7 @@ REPLIES = {
         "sent_to_human": "A support specialist is now looking at your case, and you won't need to repeat anything. Your ticket number is {ticket_id}.",
         "refund_approved": "Good news: a specialist has approved your refund of {amount_inr} for {txn_id}. Your refund reference is {refund_id}.",
         "refund_rejected": "A specialist has reviewed ticket {ticket_id} and could not approve a refund for this request.",
+        "outage_alert": "We noticed your {amount_inr} payment ({txn_id}) failed because of a problem at the bank. We are already working on returning it, so you don't need to complain. Paytm will never ask for your PIN or OTP. Please don't call helpline numbers you find online.",
     },
     "hi": {
         "ask_txn_id": "आपके भुगतान में हुई परेशानी के लिए खेद है। कृपया अपना ट्रांज़ैक्शन आईडी बताएं, जैसे TXN1001, ताकि मैं इसकी जांच कर सकूं।",
@@ -97,6 +98,7 @@ REPLIES = {
         "sent_to_human": "हमारे सहायता विशेषज्ञ अब आपका मामला देख रहे हैं, आपको कुछ भी दोहराना नहीं पड़ेगा। आपका टिकट नंबर {ticket_id} है।",
         "refund_approved": "अच्छी खबर: हमारे विशेषज्ञ ने {txn_id} के लिए आपका {amount_inr} का रिफंड मंज़ूर कर दिया है। आपका रिफंड संदर्भ नंबर {refund_id} है।",
         "refund_rejected": "हमारे विशेषज्ञ ने टिकट {ticket_id} की समीक्षा की और इस अनुरोध के लिए रिफंड मंज़ूर नहीं कर सके।",
+        "outage_alert": "हमने देखा कि बैंक में समस्या के कारण आपका {amount_inr} का भुगतान ({txn_id}) विफल हो गया। हम इसे वापस दिलाने पर काम कर रहे हैं, आपको शिकायत करने की ज़रूरत नहीं है। Paytm कभी आपका PIN या OTP नहीं मांगता। कृपया इंटरनेट पर मिले हेल्पलाइन नंबरों पर कॉल न करें।",
     },
     "kn": {
         "ask_txn_id": "ನಿಮ್ಮ ಪಾವತಿಯಲ್ಲಿನ ತೊಂದರೆಗಾಗಿ ವಿಷಾದಿಸುತ್ತೇವೆ. ದಯವಿಟ್ಟು ನಿಮ್ಮ ವಹಿವಾಟು ಐಡಿಯನ್ನು ತಿಳಿಸಿ, ಉದಾಹರಣೆಗೆ TXN1001, ಇದರಿಂದ ನಾನು ಪರಿಶೀಲಿಸಬಹುದು.",
@@ -105,6 +107,7 @@ REPLIES = {
         "sent_to_human": "ನಮ್ಮ ಸಹಾಯ ತಜ್ಞರು ಈಗ ನಿಮ್ಮ ಪ್ರಕರಣವನ್ನು ನೋಡುತ್ತಿದ್ದಾರೆ, ನೀವು ಏನನ್ನೂ ಪುನರಾವರ್ತಿಸಬೇಕಾಗಿಲ್ಲ. ನಿಮ್ಮ ಟಿಕೆಟ್ ಸಂಖ್ಯೆ {ticket_id}.",
         "refund_approved": "ಒಳ್ಳೆಯ ಸುದ್ದಿ: ನಮ್ಮ ತಜ್ಞರು {txn_id} ಗಾಗಿ ನಿಮ್ಮ {amount_inr} ಮರುಪಾವತಿಯನ್ನು ಅನುಮೋದಿಸಿದ್ದಾರೆ. ನಿಮ್ಮ ಮರುಪಾವತಿ ಉಲ್ಲೇಖ ಸಂಖ್ಯೆ {refund_id}.",
         "refund_rejected": "ನಮ್ಮ ತಜ್ಞರು ಟಿಕೆಟ್ {ticket_id} ಅನ್ನು ಪರಿಶೀಲಿಸಿದ್ದಾರೆ ಮತ್ತು ಈ ವಿನಂತಿಗೆ ಮರುಪಾವತಿಯನ್ನು ಅನುಮೋದಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ.",
+        "outage_alert": "ಬ್ಯಾಂಕ್‌ನಲ್ಲಿನ ಸಮಸ್ಯೆಯಿಂದಾಗಿ ನಿಮ್ಮ {amount_inr} ಪಾವತಿ ({txn_id}) ವಿಫಲವಾಗಿದೆ ಎಂದು ನಾವು ಗಮನಿಸಿದ್ದೇವೆ. ಅದನ್ನು ಹಿಂದಿರುಗಿಸಲು ನಾವು ಕೆಲಸ ಮಾಡುತ್ತಿದ್ದೇವೆ, ನೀವು ದೂರು ನೀಡುವ ಅಗತ್ಯವಿಲ್ಲ. Paytm ಎಂದಿಗೂ ನಿಮ್ಮ PIN ಅಥವಾ OTP ಕೇಳುವುದಿಲ್ಲ. ದಯವಿಟ್ಟು ಇಂಟರ್ನೆಟ್‌ನಲ್ಲಿ ಸಿಕ್ಕ ಸಹಾಯವಾಣಿ ಸಂಖ್ಯೆಗಳಿಗೆ ಕರೆ ಮಾಡಬೇಡಿ.",
     },
 }
 
@@ -254,7 +257,7 @@ def _decide_refund(case_id: str, customer_id: str, messages: list[dict], proposa
 
 def _escalate(case_id: str, customer_id: str, messages: list[dict], txn_id: str | None, reasons: list[str], assessment: str | None) -> dict:
     txn = _owned_transaction(txn_id, customer_id)
-    summary = _build_summary(customer_id, txn, txn_id, reasons, assessment, _customer_text(messages))
+    summary = build_summary(customer_id, txn, txn_id, reasons, assessment, _customer_text(messages))
     ticket = mock_paytm.create_ticket(summary, txn["txn_id"] if txn else None, customer_id)
     audit.log(case_id, "ACT", f"Ticket {ticket['ticket_id']} created for a human agent", {"summary": summary, "reasons": reasons})
     if txn:
@@ -274,14 +277,15 @@ def _owned_transaction(txn_id: str | None, customer_id: str) -> dict | None:
     return txn if txn["customer_id"] == customer_id else None
 
 
-def _build_summary(customer_id: str, txn: dict | None, txn_id: str | None, reasons: list[str], assessment: str | None, customer_text: str) -> str:
+def build_summary(customer_id: str, txn: dict | None, txn_id: str | None, reasons: list[str], assessment: str | None, customer_text: str) -> str:
     """Built from database facts and fixed wording, so an attack cannot put words in it for the human."""
     with get_conn() as conn:
         name = conn.execute("SELECT name FROM customers WHERE customer_id = ?", (customer_id,)).fetchone()["name"]
 
     if txn:
         reason = f" ({txn['failure_reason']})" if txn["failure_reason"] else ""
-        subject = f"complained about {txn['txn_id']}: {txn['amount_inr']} to {policy.safe_payee(txn['payee_name'])}, status {txn['status']}{reason}."
+        verb = "complained about" if customer_text else "has a stuck payment,"
+        subject = f"{verb} {txn['txn_id']}: {txn['amount_inr']} to {policy.safe_payee(txn['payee_name'])}, status {txn['status']}{reason}."
     elif txn_id:
         subject = f"mentioned {txn_id}, which was not found on their account."
     else:
@@ -291,10 +295,11 @@ def _build_summary(customer_id: str, txn: dict | None, txn_id: str | None, reaso
     parts = [f"{name} ({customer_id}) {subject}", f"Sent to a human because: {'; '.join(reasons)}."]
     untrusted = policy.untrusted_fields(txn) if txn else []
     if untrusted:
-        parts.append(f"WARNING: the {' and '.join(untrusted)} contain text that looks like instructions, so it is hidden here. Do not act on it.")
+        parts.append(f"WARNING: text that looks like instructions was found in the {' and '.join(untrusted)}, so it is hidden here. Do not act on it.")
     if assessment:
         parts.append(f"AI's reason: {assessment}.")
-    parts.append(f'Customer said (unverified): "{quote}"')
+    if customer_text:
+        parts.append(f'Customer said (unverified): "{quote}"')
     return " ".join(parts)
 
 
