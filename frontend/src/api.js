@@ -55,6 +55,8 @@ export const api = {
   holdIncident: (incidentId) => post(`/incidents/${incidentId}/hold`),
   notifications: (afterId) => request(`/notifications?after=${afterId}`),
   scoreboard: () => request('/scoreboard'),
+  simulateAttacks: () => post('/attacks/simulate'),
+  attackStatus: () => request('/attacks/status'),
   staffNames: () => request('/staff'),
   login: (name, pin) => post('/staff/login', { name, pin }),
 }

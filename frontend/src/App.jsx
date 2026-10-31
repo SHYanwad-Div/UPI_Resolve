@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import { setSignedOutHandler, setStaffToken } from './api'
 import AgentConsole from './components/AgentConsole.jsx'
+import AttackLab from './components/AttackLab.jsx'
 import ChatPanel from './components/ChatPanel.jsx'
 import DecisionLog from './components/DecisionLog.jsx'
 import ScoreBar from './components/ScoreBar.jsx'
 
 export default function App() {
   const [staff, setStaff] = useState(null)
+  const [attacksOpen, setAttacksOpen] = useState(false)
 
   useEffect(() => {
     setSignedOutHandler(() => setStaff(null))
@@ -34,7 +36,8 @@ export default function App() {
           <span className="mock-note">Demo data. No real money moves.</span>
         </div>
       </header>
-      <ScoreBar staff={staff} />
+      <ScoreBar staff={staff} onSimulateAttacks={() => setAttacksOpen(true)} />
+      {attacksOpen && staff && <AttackLab onClose={() => setAttacksOpen(false)} />}
       <main className="panels">
         <ChatPanel />
         <DecisionLog staff={staff} />

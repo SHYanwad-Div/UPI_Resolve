@@ -6,7 +6,7 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from app import agent, audit, console, outage, ratelimit, staff, views
+from app import agent, attack_lab, audit, console, outage, ratelimit, staff, views
 from app.mock_paytm import PaytmError
 from app.seed import ensure_seeded
 
@@ -107,6 +107,18 @@ def simulate_outage(_: str = Depends(staff.current_staff)) -> dict:
         raise PaytmError("demo_only", "The outage simulator only runs in demo mode", 403)
     created = outage.simulate()
     return {**created, "incidents": outage.scan(outages_only=True)}
+
+
+@app.post("/api/attacks/simulate")
+def simulate_attacks(_: str = Depends(staff.current_staff)) -> dict:
+    if os.environ.get("RESOLVE_DEMO_MODE") != "1":
+        raise PaytmError("demo_only", "The attack simulation only runs in demo mode", 403)
+    return attack_lab.start()
+
+
+@app.get("/api/attacks/status")
+def attack_status(_: str = Depends(staff.current_staff)) -> dict:
+    return attack_lab.status()
 
 
 @app.post("/api/scan")

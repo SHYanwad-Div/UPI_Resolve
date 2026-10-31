@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { api } from '../api'
 import { usePolling } from '../usePolling'
 
-export default function ScoreBar({ staff }) {
+export default function ScoreBar({ staff, onSimulateAttacks }) {
   const [score, setScore] = useState(null)
   const [busy, setBusy] = useState(null)
   const [error, setError] = useState(null)
@@ -48,6 +48,9 @@ export default function ScoreBar({ staff }) {
         )}
         <button type="button" className="button button-outage" disabled={Boolean(busy) || !staff} title={staff ? undefined : 'Sign in as staff first'} onClick={() => run('outage', api.simulateOutage)}>
           {busy === 'outage' ? 'Handling outage...' : 'Simulate bank outage'}
+        </button>
+        <button type="button" className="button button-attack" disabled={Boolean(busy) || !staff} title={staff ? undefined : 'Sign in as staff first'} onClick={onSimulateAttacks}>
+          Simulate attacks
         </button>
         <button type="button" className="button button-secondary" disabled={Boolean(busy) || !staff} title={staff ? undefined : 'Sign in as staff first'} onClick={() => run('scan', api.scan)}>
           {busy === 'scan' ? 'Scanning...' : 'Scan for stuck payments'}

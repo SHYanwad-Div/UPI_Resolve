@@ -93,6 +93,12 @@ Instructions can be hidden in what a customer types, and also in data the agent 
 
 Text that looks like instructions is also flagged: it blocks auto-refund, is hidden from staff, and shows them a warning. This is not a guarantee against every attack.
 
+## Attack simulation
+
+The **Simulate attacks** button runs 18 attacks, plus one honest customer as a control, through the real system. It takes about 15 seconds, and results are measured, so a defence that fails shows as a failure.
+
+It runs in a separate process on a throwaway database, so the dashboard and scoreboard don't change. Some attacks use the real AI. Others use a scripted AI forced to misbehave, to show the rules hold even if the AI is fully fooled. Passing shows these attacks fail, not that every possible attack will.
+
 ## Test script
 
 Runs 10 scripted complaints through the real model, on a throwaway database, and prints how many needed no human:
