@@ -25,7 +25,7 @@ def rows(sql: str, *params) -> list:
 def test_seed_has_every_kind_of_transaction(client):
     statuses = Counter(row["status"] for row in rows("SELECT status FROM transactions"))
     assert statuses == {"failed_debited": 21, "success": 6, "pending": 2, "failed_no_debit": 2}
-    assert len(rows("SELECT 1 FROM customers")) == 10
+    assert len(rows("SELECT 1 FROM customers WHERE customer_id LIKE 'C%'")) == 10
 
 
 def test_seed_timeline_makes_sense(client):
@@ -55,6 +55,14 @@ def test_reseeding_clears_demo_changes(client):
 def test_money_is_exact(client, txn_id, paise, display):
     body = client.get(f"/mock-paytm/transactions/{txn_id}").json()
     assert (body["amount_paise"], body["amount_inr"]) == (paise, display)
+
+
+@pytest.mark.parametrize(
+    "paise, display",
+    [(4500, "₹45.00"), (99_999, "₹999.99"), (200_000, "₹2,000.00"), (5_000_000, "₹50,000.00"), (63_876_000, "₹6,38,760.00"), (12_345_678_900, "₹12,34,56,789.00")],
+)
+def test_amounts_use_indian_digit_grouping(paise, display):
+    assert mock_paytm.format_inr(paise) == display
 
 
 def test_get_transaction_returns_customer_and_refund_details(client):

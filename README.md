@@ -49,7 +49,7 @@ Use `127.0.0.1`, not `localhost`. On Windows, `localhost` can add about 2 second
 
 ## Reset the demo
 
-Reloads the 30 transactions and prints a cheat sheet of what each one should do. Safe while the server is running.
+Reloads the 31 transactions and prints a cheat sheet of what each one should do. Safe while the server is running.
 
 ```bash
 cd backend && .venv/Scripts/python -m app.seed
@@ -73,6 +73,37 @@ backend/.venv/Scripts/python -m pytest backend -q
 Every step is written to an append-only audit log.
 
 Anything the policy engine does not approve goes to the human console. A human may approve a refund the rules would not, such as ₹15,000, but cannot refund a payment that never debited the customer or was already refunded.
+
+## Outage mode
+
+Failed payments arrive in waves when a bank has a problem, so Resolve treats a wave as one incident instead of thousands of tickets. "Simulate bank outage" creates 303 failed payments at a fictional bank, and "Scan for stuck payments" finds any other stuck money nobody has complained about.
+
+1. **SENSE:** plain counting spots the spike. Status is checked once per incident, not once per customer.
+2. **AI:** the model sees only numbers and picks a likely cause and action from fixed lists.
+3. **SAFETY:** the same policy rules sort every payment into routine or needs-a-person.
+4. **ACT:** every customer is told first in their language, with a warning about fake helplines. One human approval then starts the routine refunds, and the rules run again first.
+
+The outage is simulated, and the ₹ saved figure assumes ₹100 per human ticket and ₹10 per AI ticket.
+
+## Protection against prompt injection
+
+Instructions can be hidden in what a customer types, and also in data the agent reads, like a payee name or payment note. Filters can miss attacks, so Resolve limits what a fooled model can do:
+
+- **It cannot move money.** No tool it can call does that, and the refund API takes no amount.
+- **It cannot write to people.** It picks reasons from a fixed list, and customers get reviewed text.
+- **It does not read outsiders' text.** Payee names and notes never reach the model.
+
+Text that looks like instructions is also flagged: it blocks auto-refund, is hidden from staff, and shows them a warning. This is not a guarantee against every attack.
+
+## Test script
+
+Runs 10 scripted complaints through the real model, on a throwaway database, and prints how many needed no human:
+
+```bash
+backend/.venv/Scripts/python backend/tests/run_10_cases.py
+```
+
+We wrote these complaints, so the result shows the system works. It does not measure a real-world auto-resolve rate.
 
 ## RBI deadline clock
 

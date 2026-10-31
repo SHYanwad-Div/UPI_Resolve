@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS transactions (
     status         TEXT NOT NULL CHECK (status IN ('success', 'pending', 'failed_debited', 'failed_no_debit')),
     failure_reason TEXT,
     note           TEXT,
+    bank           TEXT NOT NULL DEFAULT 'Other banks',
     created_at     TEXT NOT NULL
 );
 
@@ -69,6 +70,34 @@ CREATE TABLE IF NOT EXISTS cases (
     resolved_at TEXT
 );
 
+CREATE TABLE IF NOT EXISTS incidents (
+    incident_id   TEXT PRIMARY KEY,
+    kind          TEXT NOT NULL CHECK (kind IN ('outage', 'scattered')),
+    bank          TEXT NOT NULL,
+    status        TEXT NOT NULL CHECK (status IN ('awaiting_approval', 'approved', 'held')),
+    cause         TEXT NOT NULL,
+    action        TEXT NOT NULL,
+    earliest_deadline TEXT,
+    created_at    TEXT NOT NULL,
+    decided_at    TEXT
+);
+
+CREATE TABLE IF NOT EXISTS incident_items (
+    incident_id TEXT NOT NULL REFERENCES incidents (incident_id),
+    txn_id      TEXT NOT NULL UNIQUE REFERENCES transactions (txn_id),
+    route       TEXT NOT NULL CHECK (route IN ('routine', 'human')),
+    refund_id   TEXT REFERENCES refunds (refund_id),
+    ticket_id   TEXT REFERENCES tickets (ticket_id)
+);
+
+CREATE TABLE IF NOT EXISTS notifications (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    customer_id TEXT NOT NULL REFERENCES customers (customer_id),
+    kind        TEXT NOT NULL,
+    text        TEXT NOT NULL,
+    created_at  TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS audit_log (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     case_id    TEXT NOT NULL REFERENCES cases (case_id),
@@ -87,7 +116,7 @@ BEGIN SELECT RAISE(ABORT, 'audit_log is append-only'); END;
 """
 
 # Children before parents, so foreign keys stay valid while dropping.
-TABLES = ("audit_log", "cases", "tickets", "claims", "refunds", "transactions", "customers")
+TABLES = ("audit_log", "notifications", "incident_items", "incidents", "cases", "tickets", "claims", "refunds", "transactions", "customers")
 
 
 def to_iso(moment: datetime) -> str:

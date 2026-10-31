@@ -1,0 +1,59 @@
+import { useState } from 'react'
+import { api } from '../api'
+import { usePolling } from '../usePolling'
+
+export default function ScoreBar() {
+  const [score, setScore] = useState(null)
+  const [busy, setBusy] = useState(null)
+  const [error, setError] = useState(null)
+
+  usePolling(async () => setScore(await api.scoreboard()), 1500)
+
+  async function run(action, call) {
+    setBusy(action)
+    setError(null)
+    try {
+      await call()
+    } catch (failure) {
+      setError(failure.message)
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const stats = [
+    ['Resolved by AI', score?.auto_resolved ?? 0],
+    ['Sent to humans', score?.escalated ?? 0],
+    ['Avg. AI resolution', score?.average_seconds == null ? '–' : `${score.average_seconds}s`],
+    ['Saved*', `₹${(score?.rupees_saved ?? 0).toLocaleString('en-IN')}`],
+    ['Told before complaining', score?.told_first ?? 0],
+    ['Attacks blocked', score?.attacks_blocked ?? 0],
+  ]
+
+  return (
+    <section className="scorebar" aria-label="Scoreboard">
+      <dl className="stats">
+        {stats.map(([label, value]) => (
+          <div key={label} className="stat">
+            <dd>{value}</dd>
+            <dt>{label}</dt>
+          </div>
+        ))}
+      </dl>
+      <div className="scorebar-actions">
+        {error && (
+          <span className="scorebar-error" role="alert">
+            {error}
+          </span>
+        )}
+        <button type="button" className="button button-outage" disabled={Boolean(busy)} onClick={() => run('outage', api.simulateOutage)}>
+          {busy === 'outage' ? 'Handling outage...' : 'Simulate bank outage'}
+        </button>
+        <button type="button" className="button button-secondary" disabled={Boolean(busy)} onClick={() => run('scan', api.scan)}>
+          {busy === 'scan' ? 'Scanning...' : 'Scan for stuck payments'}
+        </button>
+        <span className="scorebar-note">*Assumes ₹100 per human ticket, ₹10 per AI ticket</span>
+      </div>
+    </section>
+  )
+}

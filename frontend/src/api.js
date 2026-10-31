@@ -30,4 +30,11 @@ export const api = {
   tickets: () => request('/tickets'),
   approve: (ticketId) => post(`/tickets/${ticketId}/approve`),
   reject: (ticketId) => post(`/tickets/${ticketId}/reject`),
+  simulateOutage: () => post('/outage/simulate'),
+  scan: () => post('/scan'),
+  incidents: () => request('/incidents'),
+  approveIncident: (incidentId) => post(`/incidents/${incidentId}/approve`),
+  holdIncident: (incidentId) => post(`/incidents/${incidentId}/hold`),
+  notifications: (afterId) => request(`/notifications?after=${afterId}`),
+  scoreboard: () => request('/scoreboard'),
 }

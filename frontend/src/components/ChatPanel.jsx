@@ -3,6 +3,8 @@ import { api } from '../api'
 import { usePolling } from '../usePolling'
 
 const OUTCOMES = {
+  outage_alert: { label: 'Resolve told you first', tone: 'wait' },
+  refund_started: { label: 'Refund started', tone: 'good' },
   auto_resolved: { label: 'Refund started', tone: 'good' },
   escalated: { label: 'With a specialist', tone: 'wait' },
   human_approved: { label: 'Approved by a specialist', tone: 'good' },
@@ -26,6 +28,7 @@ export default function ChatPanel() {
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
   const nextMessageId = useRef(1)
+  const lastNotification = useRef(0)
   const inputRef = useRef(null)
   const scrollRef = useRef(null)
 
@@ -47,6 +50,16 @@ export default function ChatPanel() {
   usePolling(async () => {
     if (customers.length === 0) setCustomers(await api.customers())
   }, 2000)
+
+  // Messages that arrive before the customer has said anything.
+  usePolling(async () => {
+    const feed = await api.notifications(lastNotification.current)
+    if (feed.latest_id < lastNotification.current) lastNotification.current = 0
+    for (const entry of feed.entries.filter((item) => item.id > lastNotification.current)) {
+      lastNotification.current = entry.id
+      addMessage(entry.customer_id, { from: 'resolve', text: entry.text, outcome: entry.kind })
+    }
+  }, 1500)
 
   // A human decides in the other panel, so the chat checks for their answer.
   usePolling(async () => {

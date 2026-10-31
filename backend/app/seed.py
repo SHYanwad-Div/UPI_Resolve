@@ -39,6 +39,9 @@ CUSTOMERS = [
     ("C10", "Imran Khan", "imran.khan@ptaxis", "hi"),
 ]
 
+# Owns incident records in the audit log. Not a person, so the chat never lists it.
+OPS_CUSTOMER = ("OPS", "Operations", "ops@resolve.demo", "en")
+
 CREDIT_TIMEOUT = "Debited from customer; beneficiary bank timed out before credit"
 BANK_DOWN = "Debited from customer; beneficiary bank unavailable"
 NO_FUNDS = "Insufficient funds (Z9); no money debited"
@@ -142,7 +145,7 @@ def seed_db() -> None:
 
     db.reset_schema()
     with db.get_conn() as conn:
-        conn.executemany("INSERT INTO customers VALUES (?, ?, ?, ?)", CUSTOMERS)
+        conn.executemany("INSERT INTO customers VALUES (?, ?, ?, ?)", [*CUSTOMERS, OPS_CUSTOMER])
         conn.executemany(
             "INSERT INTO transactions (txn_id, customer_id, payee_name, payee_vpa, payment_type, amount_paise, status, failure_reason, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             [

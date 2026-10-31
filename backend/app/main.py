@@ -5,7 +5,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from app import agent, audit, console, mock_paytm, views
+from app import agent, audit, console, mock_paytm, outage, views
 from app.mock_paytm import PaytmError
 from app.seed import ensure_seeded
 
@@ -93,3 +93,39 @@ def approve_ticket(ticket_id: str) -> dict:
 @app.post("/api/tickets/{ticket_id}/reject")
 def reject_ticket(ticket_id: str) -> dict:
     return console.reject(ticket_id)
+
+
+@app.post("/api/outage/simulate")
+def simulate_outage() -> dict:
+    created = outage.simulate()
+    return {**created, "incidents": outage.scan(outages_only=True)}
+
+
+@app.post("/api/scan")
+def scan_for_stuck_payments() -> dict:
+    return {"incidents": outage.scan()}
+
+
+@app.get("/api/incidents")
+def list_incidents() -> list[dict]:
+    return outage.list_incidents()
+
+
+@app.post("/api/incidents/{incident_id}/approve")
+def approve_incident(incident_id: str) -> dict:
+    return outage.approve(incident_id)
+
+
+@app.post("/api/incidents/{incident_id}/hold")
+def hold_incident(incident_id: str) -> dict:
+    return outage.hold(incident_id)
+
+
+@app.get("/api/notifications")
+def get_notifications(after: int = 0) -> dict:
+    return views.notifications_since(after)
+
+
+@app.get("/api/scoreboard")
+def get_scoreboard() -> dict:
+    return views.scoreboard()

@@ -34,6 +34,7 @@ function caseOutcome(steps) {
   if (events.some((event) => event.startsWith('HUMAN REJECTED'))) return { label: 'Human rejected', tone: 'bad' }
   if (events.some((event) => event.startsWith('Refund'))) return { label: 'Auto-refunded', tone: 'good' }
   if (events.some((event) => event.startsWith('Ticket'))) return { label: 'Sent to a human', tone: 'wait' }
+  if (events.some((event) => event.startsWith('Created'))) return { label: 'Waiting for approval', tone: 'wait' }
   return { label: 'In progress', tone: 'neutral' }
 }
 
@@ -65,6 +66,7 @@ function StepDetail({ step }) {
       </ul>
     )
   }
+  if (detail.note) return <p className="step-note">{detail.note}</p>
   if (stage === 'SENSE' && detail.text) return <p className="step-quote">{detail.text}</p>
   if (stage === 'SENSE' && detail.error) return <p className="step-note">{detail.error}</p>
   if (stage === 'SENSE' && detail.status) {

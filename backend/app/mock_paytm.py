@@ -26,7 +26,17 @@ def _txn_not_found(txn_id: str) -> PaytmError:
 
 
 def format_inr(paise: int) -> str:
-    return f"₹{paise // 100:,}.{paise % 100:02d}"
+    """Indian digit grouping: ₹6,38,760.00, not ₹638,760.00."""
+    rupees, remainder = divmod(paise, 100)
+    digits = str(rupees)
+    if len(digits) > 3:
+        head, tail = digits[:-3], digits[-3:]
+        groups = []
+        while head:
+            groups.insert(0, head[-2:])
+            head = head[:-2]
+        digits = ",".join([*groups, tail])
+    return f"₹{digits}.{remainder:02d}"
 
 
 def get_transaction(txn_id: str) -> dict:
@@ -73,6 +83,26 @@ def initiate_refund(txn_id: str) -> dict:
         except sqlite3.IntegrityError:
             raise PaytmError("already_refunded", f"{txn_id} has already been refunded", 409) from None
     return refund
+
+
+def initiate_refunds(txn_ids: list[str]) -> dict[str, dict]:
+    """A whole approved group in one database transaction. Skips anything not refundable."""
+    refunds = {}
+    with get_conn() as conn:
+        for txn_id in txn_ids:
+            txn = conn.execute(
+                "SELECT amount_paise FROM transactions WHERE txn_id = ? AND status = 'failed_debited' AND txn_id NOT IN (SELECT txn_id FROM refunds)",
+                (txn_id,),
+            ).fetchone()
+            if txn is None:
+                continue
+            refund_id = f"RFD-{uuid4().hex[:8].upper()}"
+            conn.execute(
+                "INSERT INTO refunds (refund_id, txn_id, amount_paise, created_at) VALUES (?, ?, ?, ?)",
+                (refund_id, txn_id, txn["amount_paise"], utc_now()),
+            )
+            refunds[txn_id] = {"refund_id": refund_id, "amount_paise": txn["amount_paise"], "amount_inr": format_inr(txn["amount_paise"])}
+    return refunds
 
 
 def create_ticket(summary: str, txn_id: str | None = None, customer_id: str | None = None) -> dict:

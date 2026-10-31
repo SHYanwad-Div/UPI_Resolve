@@ -38,6 +38,89 @@ function RbiClock({ rbi, now }) {
   )
 }
 
+const LANGUAGE_NAMES = { en: 'English', hi: 'Hindi', kn: 'Kannada' }
+
+function IncidentCard({ incident, now, onDecide }) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+  const remaining = new Date(incident.earliest_deadline).getTime() - now
+  const waiting = incident.status === 'awaiting_approval'
+
+  async function decide(action) {
+    setBusy(true)
+    setError(null)
+    try {
+      await onDecide(incident.incident_id, action)
+    } catch (failure) {
+      setError(failure.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <article className={`incident ${waiting ? 'incident-open' : ''}`}>
+      <header className="ticket-header">
+        <div>
+          <strong>{incident.kind === 'outage' ? `${incident.bank} outage` : 'Stuck payments found'}</strong>
+          <span className="case-id">{incident.incident_id}</span>
+        </div>
+        <strong className="ticket-amount">{incident.stuck_inr}</strong>
+      </header>
+      <p className="ticket-txn">{incident.total} payments, one incident</p>
+      {waiting && (
+        <div className={`rbi rbi-${remaining < 0 ? 'bad' : remaining < DAY ? 'wait' : 'neutral'}`}>
+          <strong>{remaining < 0 ? `Earliest RBI deadline passed ${formatDuration(-remaining)} ago` : `Earliest RBI deadline in ${formatDuration(remaining)}`}</strong>
+        </div>
+      )}
+      <dl className="incident-facts">
+        <div>
+          <dt>AI's view</dt>
+          <dd>
+            {incident.cause_label}. Suggests: {incident.action_label.toLowerCase()}.
+          </dd>
+        </div>
+        <div>
+          <dt>Rules</dt>
+          <dd>
+            {incident.routine} routine, {incident.human} for a person
+          </dd>
+        </div>
+        <div>
+          <dt>Told first</dt>
+          <dd>
+            {Object.entries(incident.languages)
+              .map(([code, count]) => `${LANGUAGE_NAMES[code]} ${count}`)
+              .join(', ')}
+          </dd>
+        </div>
+      </dl>
+      {incident.attacks > 0 && (
+        <p className="ticket-warning" role="alert">
+          Hidden instructions found in {incident.attacks} payment{incident.attacks === 1 ? '' : 's'}. Sent to a person, and the AI never read them.
+        </p>
+      )}
+      {error && (
+        <p className="ticket-error" role="alert">
+          {error}
+        </p>
+      )}
+      {waiting ? (
+        <div className="ticket-actions">
+          <button type="button" className="button button-approve" disabled={busy || incident.routine === 0} onClick={() => decide('approve')}>
+            Approve {incident.routine} refunds ({incident.routine_inr})
+          </button>
+          <button type="button" className="button button-reject" disabled={busy} onClick={() => decide('hold')}>
+            Hold
+          </button>
+        </div>
+      ) : (
+        <p className={`outcome outcome-${incident.status === 'approved' ? 'good' : 'bad'}`}>{incident.status === 'approved' ? `One approval: ${incident.refunded} refunds started` : 'Held, no refunds started'}</p>
+      )}
+    </article>
+  )
+}
+
 function OpenTicket({ ticket, now, onDecide }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
@@ -94,16 +177,24 @@ function OpenTicket({ ticket, now, onDecide }) {
 
 export default function AgentConsole() {
   const [tickets, setTickets] = useState([])
+  const [incidents, setIncidents] = useState([])
   const now = useNow(30_000)
 
   async function refresh() {
-    setTickets(await api.tickets())
+    const [latestTickets, latestIncidents] = await Promise.all([api.tickets(), api.incidents()])
+    setTickets(latestTickets)
+    setIncidents(latestIncidents)
   }
 
   usePolling(refresh, 1200)
 
   async function decide(ticketId, action) {
     await (action === 'approve' ? api.approve(ticketId) : api.reject(ticketId))
+    await refresh()
+  }
+
+  async function decideIncident(incidentId, action) {
+    await (action === 'approve' ? api.approveIncident(incidentId) : api.holdIncident(incidentId))
     await refresh()
   }
 
@@ -121,7 +212,10 @@ export default function AgentConsole() {
       </div>
 
       <div className="panel-body">
-        {open.length === 0 && <p className="empty">Nothing needs a human right now.</p>}
+        {open.length === 0 && incidents.length === 0 && <p className="empty">Nothing needs a human right now.</p>}
+        {incidents.map((incident) => (
+          <IncidentCard key={incident.incident_id} incident={incident} now={now} onDecide={decideIncident} />
+        ))}
         {open.map((ticket) => (
           <OpenTicket key={ticket.ticket_id} ticket={ticket} now={now} onDecide={decide} />
         ))}
