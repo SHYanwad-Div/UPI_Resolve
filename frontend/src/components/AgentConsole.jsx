@@ -163,6 +163,7 @@ function IncidentCard({ incident, now, staff, onDecide }) {
           {error}
         </p>
       )}
+      {waiting && incident.action !== 'notify_and_refund_routine' && <p className="approver-note">The AI suggested otherwise, so check before approving.</p>}
       {waiting && <SecondApproverNote item={incident} staff={staff} />}
       {waiting ? (
         <div className="ticket-actions">

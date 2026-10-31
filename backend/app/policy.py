@@ -195,10 +195,23 @@ _SECRET_PATTERNS = (
 
 
 def redact_secrets(text: str) -> tuple[str, bool]:
-    """Returns the text with secrets removed, and whether anything was removed."""
-    cleaned = _SECRET_PATTERNS[0].sub(r"\1\2[removed]", text)
+    """Returns the text with secrets removed, and whether anything was removed.
+
+    Transaction ids are set aside first, so "my PIN for TXN1001" keeps its id,
+    while "PIN for TXN1001 is 4821" still loses the PIN.
+    """
+    ids = []
+
+    def set_aside(match: re.Match) -> str:
+        ids.append(match[0])
+        return ""
+
+    cleaned = _TXN_ID.sub(set_aside, text)
+    cleaned = _SECRET_PATTERNS[0].sub(r"\1\2[removed]", cleaned)
     cleaned = _SECRET_PATTERNS[2].sub(r"\1\2[removed]", cleaned)
     cleaned = _SECRET_PATTERNS[1].sub("[number removed]", cleaned)
+    for txn_id in ids:
+        cleaned = cleaned.replace("", txn_id, 1)
     return cleaned, cleaned != text
 
 

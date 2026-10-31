@@ -209,6 +209,23 @@ def test_ordinary_details_are_kept(text):
     assert policy.redact_secrets(text) == (text, False)
 
 
+@pytest.mark.parametrize(
+    "text",
+    ["I entered my PIN for TXN1001 and money was debited", "OTP came but TXN1002 failed", "my pin was right, TXN 1003 failed", "account for TXN10000001 failed"],
+)
+def test_a_transaction_id_near_the_word_pin_is_kept(text):
+    """Found by Sumith: the id was removed, and the customer was warned about a PIN they never shared."""
+    assert policy.redact_secrets(text) == (text, False)
+
+
+@pytest.mark.parametrize("text, secret, txn_id", [("PIN for TXN1001 is 4821", "4821", "TXN1001"), ("OTP for TXN1002 is 778899", "778899", "TXN1002")])
+def test_a_real_secret_beside_a_transaction_id_is_still_removed(text, secret, txn_id):
+    cleaned, found = policy.redact_secrets(text)
+    assert found
+    assert secret not in cleaned
+    assert txn_id in cleaned
+
+
 def test_a_typed_pin_never_reaches_the_ai_or_the_log(fresh_db, monkeypatch):
     seen = []
 
