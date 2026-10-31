@@ -223,6 +223,11 @@ function OpenTicket({ ticket, now, staff, onDecide }) {
           {ticket.customer_words}
         </blockquote>
       )}
+      {ticket.customer_words_hidden && (
+        <p className="ticket-warning" role="alert">
+          Possible attack: the customer's message copies our ticket wording, so it is hidden.
+        </p>
+      )}
       {ticket.refund_blocked_reason && <p className="ticket-blocked">Refund unavailable: {ticket.refund_blocked_reason}.</p>}
       {!ticket.refund_blocked_reason && <SecondApproverNote item={ticket} staff={staff} />}
       {error && (

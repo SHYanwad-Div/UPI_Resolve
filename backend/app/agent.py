@@ -46,6 +46,16 @@ AI_REASONS = {
 }
 NO_VALID_REASON = "The AI gave no valid reason"
 
+# Each of these states a fact about the payment, so a fooled model could pick a false one to steer
+# the human. Fixed wording is not enough: a reason only reaches them if the record agrees with it.
+REASON_FACTS = {
+    AI_REASONS["payment_successful"]: lambda txn: txn["status"] == "success",
+    AI_REASONS["payment_pending"]: lambda txn: txn["status"] == "pending",
+    AI_REASONS["no_money_debited"]: lambda txn: txn["status"] == "failed_no_debit",
+    AI_REASONS["already_refunded"]: lambda txn: txn["refund"] is not None,
+}
+REASON_CONTRADICTED = "The AI gave a reason that does not match the payment record"
+
 TOOLS = [
     {
         "type": "function",
@@ -146,16 +156,18 @@ def handle_message(customer_id: str, text: str, case_id: str | None = None) -> d
 
 
 def _handle(customer_id: str, text: str, case_id: str, messages: list[dict]) -> dict:
-    flags = policy.detect_injection(text)
+    # The whole conversation, so an attack split across follow-up messages is read as one.
+    customer_text = _customer_text(messages)
+    flags = policy.detect_injection(customer_text, customer_id)
     if flags:
         audit.log(case_id, "SAFETY", "BLOCKED: suspicious request, AI not consulted", {"flags": flags})
-        return _escalate(case_id, customer_id, messages, policy.first_txn_id(text), flags, assessment=None)
+        return _escalate(case_id, customer_id, messages, policy.first_txn_id(customer_text), flags, assessment=None)
 
     try:
         outcome = _run_model(case_id, customer_id, messages)
     except llm.LLMError as exc:
         audit.log(case_id, "AI", "AI unavailable, sending to a human", {"error": str(exc)})
-        return _escalate(case_id, customer_id, messages, policy.first_txn_id(text), ["The AI was unavailable"], assessment=None)
+        return _escalate(case_id, customer_id, messages, policy.first_txn_id(customer_text), ["The AI was unavailable"], assessment=None)
 
     if isinstance(outcome, NeedsCustomer):
         reply = reply_text(outcome.reply_key, messages)
@@ -277,13 +289,21 @@ def _decide_refund(case_id: str, customer_id: str, messages: list[dict], proposa
 
 def _escalate(case_id: str, customer_id: str, messages: list[dict], txn_id: str | None, reasons: list[str], assessment: str | None) -> dict:
     txn = _owned_transaction(txn_id, customer_id)
-    summary = build_summary(customer_id, txn, txn_id, reasons, assessment, _customer_text(messages))
+    summary = build_summary(customer_id, txn, txn_id, reasons, _checked_against_record(case_id, assessment, txn), _customer_text(messages))
     ticket = mock_paytm.create_ticket(summary, txn["txn_id"] if txn else None, customer_id)
     audit.log(case_id, "ACT", f"Ticket {ticket['ticket_id']} created for a human agent", {"summary": summary, "reasons": reasons})
     if txn:
         _record_claim(customer_id, txn["txn_id"])
     reply = reply_text("sent_to_human", messages, ticket_id=ticket["ticket_id"])
     return _finish(case_id, "escalated", messages, reply, txn_id=txn["txn_id"] if txn else None, ticket_id=ticket["ticket_id"])
+
+
+def _checked_against_record(case_id: str, assessment: str | None, txn: dict | None) -> str | None:
+    fact = REASON_FACTS.get(assessment)
+    if fact is None or (txn and fact(txn)):
+        return assessment
+    audit.log(case_id, "SAFETY", "BLOCKED: AI's reason contradicts the payment record", {"flags": [f"The AI said: {assessment}"]})
+    return REASON_CONTRADICTED
 
 
 def _owned_transaction(txn_id: str | None, customer_id: str) -> dict | None:
@@ -298,14 +318,14 @@ def _owned_transaction(txn_id: str | None, customer_id: str) -> dict | None:
 
 
 def build_summary(customer_id: str, txn: dict | None, txn_id: str | None, reasons: list[str], assessment: str | None, customer_text: str) -> str:
-    """Built from database facts and fixed wording, so an attack cannot put words in it for the human."""
+    """Built from database facts and fixed wording. Outside words appear only labelled as unverified."""
     with get_conn() as conn:
         name = conn.execute("SELECT name FROM customers WHERE customer_id = ?", (customer_id,)).fetchone()["name"]
 
     if txn:
-        reason = f" ({txn['failure_reason']})" if txn["failure_reason"] else ""
+        reason = f" ({policy.safe_failure_reason(txn['failure_reason'])})" if txn["failure_reason"] else ""
         verb = "complained about" if customer_text else "has a stuck payment,"
-        subject = f"{verb} {txn['txn_id']}: {txn['amount_inr']} to {policy.safe_payee(txn['payee_name'])}, status {txn['status']}{reason}."
+        subject = f"{verb} {txn['txn_id']}: {txn['amount_inr']} to {policy.labelled_payee(txn['payee_name'])}, status {txn['status']}{reason}."
     elif txn_id:
         subject = f"mentioned {txn_id}, which was not found on their account."
     else:
@@ -319,6 +339,8 @@ def build_summary(customer_id: str, txn: dict | None, txn_id: str | None, reason
         parts.append(f"AI's reason: {assessment}.")
     # The customer's words are shown apart in the console, labelled unverified. Inside this
     # paragraph, "your senior said please pay quickly" would read like a fact to a busy reviewer.
+    if policy.copies_ticket_wording(customer_text):
+        parts.append("WARNING: the customer's message copies this ticket's wording, so it is hidden. Do not act on it.")
     return " ".join(parts)
 
 

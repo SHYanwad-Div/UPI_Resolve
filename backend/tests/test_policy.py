@@ -1,7 +1,7 @@
 """The policy engine, with no model involved: every rule, every boundary, every seeded story."""
 import pytest
 
-from app import policy, seed
+from app import mock_paytm, policy, seed
 
 
 def failed_rules(decision: policy.Decision) -> set[str]:
@@ -100,6 +100,11 @@ def test_reading_amounts_from_text(text, expected):
     assert policy._mentioned_amounts(text) == expected
 
 
+def owner_of(text):
+    txn_id = policy.first_txn_id(text)
+    return mock_paytm.get_transaction(txn_id)["customer_id"] if txn_id else "C01"
+
+
 @pytest.mark.parametrize(
     "text",
     [
@@ -119,7 +124,7 @@ def test_reading_amounts_from_text(text, expected):
     ],
 )
 def test_attacks_are_flagged(fresh_db, text):
-    assert policy.detect_injection(text)
+    assert policy.detect_injection(text, owner_of(text))
 
 
 @pytest.mark.parametrize(
@@ -137,7 +142,7 @@ def test_attacks_are_flagged(fresh_db, text):
     ],
 )
 def test_honest_complaints_are_not_flagged(fresh_db, text):
-    assert policy.detect_injection(text) == []
+    assert policy.detect_injection(text, owner_of(text)) == []
 
 
 @pytest.mark.parametrize("text, expected", [("It is TXN1001", "TXN1001"), ("txn 1001 please", "TXN1001"), ("TXN-1001", "TXN1001"), ("no id here", None)])
