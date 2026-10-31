@@ -170,6 +170,25 @@ UNKNOWN_FAILURE = "unrecognised failure message hidden"
 _TICKET_WORDING = _pattern(r"\bai\W{0,2}s?\s+reason\b|sent to a human|customer said|\bwarning\s*:")
 
 
+def explain_message(text: str) -> list[dict]:
+    """For the attack dashboard: which filter rules fired on a message, and the exact words they matched."""
+    normalised = _normalise(text)
+    return [{"how": label, "matched": match[0]} for label, pattern in _INJECTION_PATTERNS if (match := pattern.search(normalised))]
+
+
+def explain_payment_text(text: str | None) -> list[dict]:
+    """For the attack dashboard: why a payee name or note looks like an attack."""
+    if not text:
+        return []
+    normalised = _normalise(text)
+    found = []
+    if len(normalised) > MAX_PAYMENT_TEXT:
+        found.append({"how": f"Longer than the {MAX_PAYMENT_TEXT} characters real payee names and notes use", "matched": f"{len(normalised)} characters"})
+    if match := _DATA_SUSPICIOUS.search(normalised):
+        found.append({"how": "Contains a word or symbol real payment text wouldn't use", "matched": match[0]})
+    return found + explain_message(text)
+
+
 def payment_text_is_suspicious(text: str | None) -> bool:
     if not text:
         return False

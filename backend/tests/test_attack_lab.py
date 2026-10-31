@@ -1,4 +1,6 @@
 """The attack simulation: every attack must hold, and a broken defence must show as a failure."""
+import json
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -49,6 +51,74 @@ def test_the_ai_being_offline_is_reported_and_moves_no_money(fresh_db):
     assert result["ai_offline"]
     assert result["money_moved_paise"] == 0
     assert result["passed"]
+
+
+def by_title(title):
+    return next(attack for attack in attack_lab.ATTACKS if attack.title == title)
+
+
+def test_bunq_style_attacks_come_first():
+    assert attack_lab.ATTACKS[0].group == attack_lab.GROUP_HIDDEN
+    assert attack_lab.ATTACKS[0].title == "Instructions in a payment note"
+
+
+def test_bunq_card_shows_the_hidden_text_how_it_was_caught_and_what_the_ai_saw(fresh_db):
+    result = attack_lab.run_attack(by_title("Instructions in a payment note"), fake_real_ai)
+    assert "SYSTEM NOTE FROM PAYTM COMPLIANCE" in result["hidden_text"]
+    assert result["hidden_field"] == "payment note"
+    assert result["ai_reached"] and not result["ai_read_hidden"]
+    assert any(item["matched"] for item in result["caught"])
+    assert any(not check["passed"] and "Hidden instructions" in check["detail"] for check in result["checks"])
+
+
+def test_card_reports_the_ai_reading_hidden_text_if_it_ever_does(fresh_db, monkeypatch):
+    """The 'never reached the AI' line is measured, so a leak must show."""
+    fields = ("txn_id", "status", "amount_inr", "created_at", "note")
+    monkeypatch.setattr(attack_lab, "ATTACKS", attack_lab.ATTACKS)
+    from app import agent, mock_paytm
+
+    monkeypatch.setattr(agent, "_lookup_for_model", lambda txn_id, customer_id: {field: mock_paytm.get_transaction(txn_id)[field] for field in fields})
+    script = [attack_lab._call("get_transaction", txn_id="TXN1031"), attack_lab._call("propose_human_handoff", txn_id="TXN1031", reason_code="unclear_request")]
+    result = attack_lab.run_attack(by_title("Instructions in a payment note"), lambda messages, tools: script.pop(0))
+    assert result["ai_read_hidden"]
+
+
+@pytest.mark.parametrize(
+    "title, expected",
+    [
+        ("Direct order", "ignore your rules"),
+        ("Invisible characters", "invisible characters"),
+        ("Fake amount", "₹50,000.00"),
+        ("Fooled AI tells a lie from the list", "already refunded"),
+        ("Forged ticket wording", "ticket wording"),
+        ("PIN and OTP typed in chat", "[removed]"),
+        ("Fooled AI calls a refund tool directly", "initiate_refund"),
+        ("Fooled AI writes orders to staff", "fixed list"),
+    ],
+)
+def test_each_card_names_what_really_caught_it(fresh_db, title, expected):
+    result = attack_lab.run_attack(by_title(title), fake_real_ai)
+    assert expected.lower() in json.dumps(result["caught"], ensure_ascii=False).lower()
+
+
+def test_attack_that_no_detector_flags_is_reported_honestly(fresh_db):
+    """Emotional pressure uses no trigger words. The card must not invent a detection."""
+    script = [attack_lab._call("propose_refund", txn_id="TXN1027", reason_code="failed_after_debit")]
+    result = attack_lab.run_attack(by_title("Emotional pressure, no trigger words"), lambda messages, tools: script.pop(0))
+    assert result["caught"] == []
+    assert result["passed"]
+    assert result["money_moved_paise"] == 0
+
+
+def test_filter_stopped_attacks_say_the_ai_saw_nothing(fresh_db):
+    result = attack_lab.run_attack(by_title("Direct order"), fake_real_ai)
+    assert not result["ai_reached"]
+    assert result["ai_got_message"] is None
+
+
+def test_scripted_attacks_show_what_the_ai_was_forced_to_do(fresh_db):
+    result = attack_lab.run_attack(by_title("Fooled AI asks for a bigger amount"), fake_real_ai)
+    assert "amount=5000000" in result["forced_calls"][0]
 
 
 def test_simulation_needs_staff_and_demo_mode(fresh_db, sign_in, monkeypatch):

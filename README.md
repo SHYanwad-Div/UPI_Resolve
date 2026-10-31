@@ -95,7 +95,7 @@ Text that looks like instructions is also flagged: it blocks auto-refund, is hid
 
 ## Attack simulation
 
-The **Simulate attacks** button runs 18 attacks, plus one honest customer as a control, through the real system. It takes about 15 seconds, and results are measured, so a defence that fails shows as a failure.
+The **Simulate attacks** button opens the Prompt injection dashboard. It runs 18 attacks, plus one honest customer as a control, through the real system in about 15 seconds. Each card shows the exact injection, what caught it and the words it matched, what the AI actually received, every rule check, and the money moved. Results are measured: a defence that fails shows as a failure, and an attack no detector flagged says so.
 
 It runs in a separate process on a throwaway database, so the dashboard and scoreboard don't change. Some attacks use the real AI. Others use a scripted AI forced to misbehave, to show the rules hold even if the AI is fully fooled. Passing shows these attacks fail, not that every possible attack will.
 

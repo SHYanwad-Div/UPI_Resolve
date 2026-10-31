@@ -286,6 +286,121 @@ select {
   gap: 6px;
 }
 
+.attack-bunq {
+  border: 2px solid var(--wait);
+}
+
+.attack h4 {
+  margin: 6px 0 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--navy);
+}
+
+.payload {
+  padding: 6px 10px;
+  border-radius: 7px;
+  background: var(--bad-bg);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.payload p {
+  margin: 0;
+}
+
+.payload p + p {
+  margin-top: 4px;
+}
+
+.payload span {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 650;
+  color: var(--bad);
+}
+
+.payload-honest {
+  background: var(--good-bg);
+}
+
+.payload-honest span {
+  color: var(--good);
+}
+
+.payload-hidden {
+  font-weight: 600;
+}
+
+.payload code {
+  font-size: 12.5px;
+}
+
+.caught {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 13px;
+}
+
+.caught mark {
+  padding: 0 4px;
+  border-radius: 4px;
+  background: var(--wait-bg);
+  color: var(--wait);
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.attack-good {
+  color: var(--good);
+  font-weight: 600;
+}
+
+.attack-bad {
+  color: var(--bad);
+  font-weight: 600;
+}
+
+.lab-jump {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.lab-jump button {
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--accent);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.layers {
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-soft);
+  font-size: 13px;
+}
+
+.layers summary {
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.layers ol {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+}
+
 .attack-line {
   font-size: 13px;
   overflow-wrap: anywhere;
