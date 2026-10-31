@@ -24,7 +24,7 @@ def rows(sql: str, *params) -> list:
 
 def test_seed_has_every_kind_of_transaction(client):
     statuses = Counter(row["status"] for row in rows("SELECT status FROM transactions"))
-    assert statuses == {"failed_debited": 20, "success": 6, "pending": 2, "failed_no_debit": 2}
+    assert statuses == {"failed_debited": 21, "success": 6, "pending": 2, "failed_no_debit": 2}
     assert len(rows("SELECT 1 FROM customers")) == 10
 
 

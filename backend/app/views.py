@@ -1,6 +1,7 @@
 """Read-only data the UI needs that does not belong to any one part of the agent."""
 from app.db import get_conn
 from app.mock_paytm import PaytmError, format_inr
+from app.policy import safe_payee
 
 
 def customers_with_payments() -> list[dict]:
@@ -12,7 +13,7 @@ def customers_with_payments() -> list[dict]:
         {
             **dict(customer),
             "payments": [
-                {"txn_id": p["txn_id"], "payee_name": p["payee_name"], "amount_inr": format_inr(p["amount_paise"]), "status": p["status"]}
+                {"txn_id": p["txn_id"], "payee_name": safe_payee(p["payee_name"]), "amount_inr": format_inr(p["amount_paise"]), "status": p["status"]}
                 for p in payments
                 if p["customer_id"] == customer["customer_id"]
             ],

@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS transactions (
     amount_paise   INTEGER NOT NULL CHECK (amount_paise > 0),
     status         TEXT NOT NULL CHECK (status IN ('success', 'pending', 'failed_debited', 'failed_no_debit')),
     failure_reason TEXT,
+    note           TEXT,
     created_at     TEXT NOT NULL
 );
 

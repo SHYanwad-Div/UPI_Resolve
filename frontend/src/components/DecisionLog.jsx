@@ -70,7 +70,7 @@ function StepDetail({ step }) {
   if (stage === 'SENSE' && detail.status) {
     return (
       <p className="step-note">
-        {detail.status} · {detail.amount_inr} · {detail.payee_name}
+        {detail.status} · {detail.amount_inr}
         {detail.already_refunded ? ' · already refunded' : ''}
       </p>
     )

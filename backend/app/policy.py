@@ -46,9 +46,15 @@ def evaluate_refund(txn_id: str, customer_id: str, customer_text: str = "") -> D
     except PaytmError:
         return Decision((Check("transaction_exists", False, f"No transaction with id {txn_id}"),))
 
+    return decide(txn, customer_id, claims_this_week(customer_id), customer_text)
+
+
+def decide(txn: dict, customer_id: str, claims: int, customer_text: str = "") -> Decision:
+    """The rules themselves, with no database access, so a whole outage can be checked at once."""
+    txn_id = txn["txn_id"]
     limit = format_inr(AUTO_REFUND_LIMIT_PAISE)
     amount = txn["amount_paise"]
-    claims = claims_this_week(customer_id)
+    untrusted = untrusted_fields(txn)
     return Decision(
         (
             Check("belongs_to_customer", txn["customer_id"] == customer_id, f"{txn_id} belongs to this customer" if txn["customer_id"] == customer_id else f"{txn_id} does not belong to this customer"),
@@ -57,6 +63,7 @@ def evaluate_refund(txn_id: str, customer_id: str, customer_text: str = "") -> D
             Check("no_earlier_refund", txn["refund"] is None, "No earlier refund" if txn["refund"] is None else f"Already refunded as {txn['refund']['refund_id']}"),
             Check("under_claim_limit", claims < CLAIM_LIMIT_PER_WEEK, f"{claims} earlier claim{'' if claims == 1 else 's'} this week (limit: fewer than {CLAIM_LIMIT_PER_WEEK})"),
             Check("amount_matches_complaint", _amount_matches(customer_text, amount), _amount_detail(customer_text, txn)),
+            Check("payment_data_clean", not untrusted, f"Hidden instructions found in the {' and '.join(untrusted)}" if untrusted else "No hidden instructions in the payment details"),
         )
     )
 
@@ -101,6 +108,29 @@ _INJECTION_PATTERNS = (
     ("Asks to ignore rules (Hindi)", _pattern(r"(नियम|निर्देश).{0,40}(अनदेखा|भूल|तोड़|छोड़|नज़रअंदाज़|नजरअंदाज)")),
     ("Asks to ignore rules (Kannada)", _pattern(r"(ನಿಯಮ|ಸೂಚನೆ).{0,40}(ನಿರ್ಲಕ್ಷಿಸ|ಮರೆತು|ಮರೆಯಿರಿ|ಬಿಟ್ಟು|ಉಲ್ಲಂಘಿಸ)")),
 )
+
+
+# Payee names and notes are written by outsiders. Real ones are short and plain, so anything
+# else is treated as a possible attack. This only decides what a human is warned about: the
+# model never reads these fields, so a phrase that slips past this list still cannot steer it.
+MAX_PAYMENT_TEXT = 40
+_DATA_SUSPICIOUS = _pattern(r"\b(system|assistant|compliance|verified|approve\w*|ignore|instructions?|prompts?|reviewer|tool|propose_\w+|refund\w*)\b|[:{}<>\[\]]|नियम|निर्देश|ನಿಯಮ|ಸೂಚನೆ")
+
+
+def payment_text_is_suspicious(text: str | None) -> bool:
+    if not text:
+        return False
+    normalised = _normalise(text)
+    return len(normalised) > MAX_PAYMENT_TEXT or bool(_DATA_SUSPICIOUS.search(normalised)) or any(pattern.search(normalised) for _, pattern in _INJECTION_PATTERNS)
+
+
+def untrusted_fields(txn: dict) -> list[str]:
+    fields = (("payee name", "payee_name"), ("payment note", "note"))
+    return [label for label, field in fields if payment_text_is_suspicious(txn.get(field))]
+
+
+def safe_payee(payee_name: str) -> str:
+    return "[suspicious payee name hidden]" if payment_text_is_suspicious(payee_name) else payee_name
 
 
 def first_txn_id(text: str) -> str | None:

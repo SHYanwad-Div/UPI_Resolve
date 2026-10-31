@@ -6,7 +6,7 @@ debited the customer, or one that has already been refunded.
 """
 import json
 
-from app import agent, audit, mock_paytm, rbi
+from app import agent, audit, mock_paytm, policy, rbi
 from app.db import get_conn, utc_now
 from app.mock_paytm import PaytmError
 
@@ -56,7 +56,8 @@ def _with_details(ticket: dict) -> dict:
     txn = mock_paytm.get_transaction(ticket["txn_id"]) if ticket["txn_id"] else None
     ticket["rbi"] = rbi.for_transaction(txn) if txn and ticket["status"] == "open" else None
     ticket["refund_blocked_reason"] = _refund_blocked_reason(txn)
-    ticket["txn"] = {field: txn[field] for field in ("amount_inr", "payee_name", "status")} if txn else None
+    ticket["txn"] = {"amount_inr": txn["amount_inr"], "status": txn["status"], "payee_name": policy.safe_payee(txn["payee_name"])} if txn else None
+    ticket["untrusted_fields"] = policy.untrusted_fields(txn) if txn else []
     return ticket
 
 

@@ -68,6 +68,11 @@ function OpenTicket({ ticket, now, onDecide }) {
         </p>
       )}
       {ticket.rbi && <RbiClock rbi={ticket.rbi} now={now} />}
+      {ticket.untrusted_fields.length > 0 && (
+        <p className="ticket-warning" role="alert">
+          Possible attack: hidden instructions in the {ticket.untrusted_fields.join(' and ')}. The AI never read them.
+        </p>
+      )}
       <p className="ticket-summary">{ticket.summary}</p>
       {ticket.refund_blocked_reason && <p className="ticket-blocked">Refund unavailable: {ticket.refund_blocked_reason}.</p>}
       {error && (

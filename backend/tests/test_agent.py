@@ -92,17 +92,17 @@ def test_high_value_goes_to_a_human_with_a_useful_summary(use_model):
     assert refund_count() == 0
     ticket = ticket_for(result)
     assert ticket["txn_id"] == "TXN1012"
-    for expected in ("Ananya Rao", "₹15,000.00", "Sunrise PG Rent", "over the ₹2,000.00", "Rent payment failed", "My rent payment TXN1012 failed"):
+    for expected in ("Ananya Rao", "₹15,000.00", "Sunrise PG Rent", "over the ₹2,000.00", "My rent payment TXN1012 failed"):
         assert expected in ticket["summary"]
     assert "\n" not in ticket["summary"]  # The brief asks for one paragraph.
 
 
 def test_model_handoff_is_respected(use_model):
-    use_model(calls(tool_call("get_transaction", txn_id="TXN1027")), calls(tool_call("propose_human_handoff", txn_id="TXN1027", reason="Payment shows success")))
+    use_model(calls(tool_call("get_transaction", txn_id="TXN1027")), calls(tool_call("propose_human_handoff", txn_id="TXN1027", reason_code="payment_successful")))
     result = agent.handle_message("C03", "TXN1027 succeeded but the shop says no")
     assert result["status"] == "escalated"
     assert "Human handoff needs no approval" in events(result["case_id"])
-    assert "AI assessment: Payment shows success" in ticket_for(result)["summary"]
+    assert f"AI's reason: {agent.AI_REASONS['payment_successful']}" in ticket_for(result)["summary"]
 
 
 def test_missing_id_is_asked_for_then_the_case_continues(use_model):
