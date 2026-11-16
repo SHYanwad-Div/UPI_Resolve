@@ -5,6 +5,17 @@ Built for the Paytm Build for India AI Hackathon, Track 3: Autonomous AI Teammat
 
 The AI proposes, a plain Python rules engine approves, and every action is logged. No real money moves.
 
+## Demo
+
+[![Resolve demo: a failed UPI payment refunded, a bank outage handled and 18 prompt injection attacks stopped](docs/demo.gif)](docs/demo.mp4)
+
+**[▶ Watch the 65-second demo in full quality](docs/demo.mp4)**
+
+1. A customer reports a failed UPI payment.
+2. The AI proposes a refund, plain rules approve it, and every step is logged.
+3. A simulated bank outage: 303 customers are told before they complain.
+4. 18 prompt injection attacks run through the real system: 18 of 18 stopped, ₹0 moved by attacks.
+
 ## Setup
 
 Requires Python 3.13 and Node 24. Run from the project root:
